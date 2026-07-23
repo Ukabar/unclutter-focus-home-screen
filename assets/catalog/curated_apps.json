@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Phone",
+    "launchUrl": "tel:",
+    "category": "Communication"
+  },
+  {
+    "name": "Messages",
+    "launchUrl": "sms:",
+    "category": "Communication"
+  },
+  {
+    "name": "Mail",
+    "launchUrl": "mailto:",
+    "category": "Communication"
+  },
+  {
+    "name": "FaceTime",
+    "launchUrl": "facetime:",
+    "category": "Communication"
+  },
+  {
+    "name": "Maps",
+    "launchUrl": "maps:",
+    "category": "Navigation"
+  },
+  {
+    "name": "Calendar",
+    "launchUrl": "calshow:",
+    "category": "Planning"
+  },
+  {
+    "name": "Shortcuts",
+    "launchUrl": "shortcuts:",
+    "category": "Tools"
+  },
+  {
+    "name": "Music",
+    "launchUrl": "music:",
+    "category": "Media"
+  },
+  {
+    "name": "Spotify",
+    "launchUrl": "spotify:",
+    "category": "Media"
+  },
+  {
+    "name": "WhatsApp",
+    "launchUrl": "whatsapp:",
+    "category": "Communication"
+  },
+  {
+    "name": "Slack",
+    "launchUrl": "slack:",
+    "category": "Work"
+  },
+  {
+    "name": "Notion",
+    "launchUrl": "notion:",
+    "category": "Work"
+  }
+]

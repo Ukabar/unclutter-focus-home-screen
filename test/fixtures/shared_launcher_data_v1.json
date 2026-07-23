@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-23T00:00:00.000Z",
+  "entries": [
+    {
+      "id": "entry-maps",
+      "name": "Maps",
+      "launchUrl": "maps:"
+    },
+    {
+      "id": "entry-mail",
+      "name": "Mail",
+      "launchUrl": "mailto:"
+    }
+  ]
+}
