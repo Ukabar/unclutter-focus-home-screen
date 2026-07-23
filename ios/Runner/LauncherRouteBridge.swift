@@ -2,7 +2,7 @@ import Flutter
 import Foundation
 
 final class LauncherRouteBridge {
-  private static let channelName = "com.example.dumbphonehomescreen/launcher_routes"
+  private static let channelName = "com.zyverio.focuslauncher/launcher_routes"
   private static var channel: FlutterMethodChannel?
   private static var pendingInitialRoute: String?
 

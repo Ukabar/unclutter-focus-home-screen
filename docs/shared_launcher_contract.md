@@ -5,10 +5,10 @@ Widget Extension. Phase 4 uses this contract from `EssentialLauncherWidget`.
 
 ## Identifiers
 
-- Main bundle identifier: `com.example.dumbphonehomescreen`
-- App Group identifier: `group.com.example.dumbphonehomescreen`
+- Main bundle identifier: `com.zyverio.focuslauncher`
+- App Group identifier: `group.com.zyverio.focuslauncher`
 - Shared storage key: `shared_launcher_data_v1`
-- MethodChannel: `com.example.dumbphonehomescreen/shared_launcher_data`
+- MethodChannel: `com.zyverio.focuslauncher/shared_launcher_data`
 
 The App Group identifier is derived from the inspected bundle identifier using
 the `group.<bundle-id>` convention.
@@ -118,7 +118,7 @@ a complete payload and does not duplicate or delete local entries.
 Configured in source:
 
 - `ios/Runner/Runner.entitlements` contains
-  `group.com.example.dumbphonehomescreen`
+  `group.com.zyverio.focuslauncher`
 - Runner Debug, Release, and Profile build settings point to
   `Runner/Runner.entitlements`
 - Swift shared contract, storage, and bridge files are added to the Runner
@@ -126,11 +126,9 @@ Configured in source:
 
 Manual Apple/Xcode steps still required on macOS:
 
-- Register or replace the placeholder bundle identifier with a developer-owned
-  reverse-DNS identifier.
+- Register `com.zyverio.focuslauncher` as the production app identifier.
 - Enable the App Groups capability for the main app target.
-- Register `group.com.example.dumbphonehomescreen`, or the equivalent App Group
-  after renaming the bundle identifier, in the Apple Developer portal.
+- Register `group.com.zyverio.focuslauncher` in the Apple Developer portal.
 - Add the same App Group to the Widget Extension target.
 - Regenerate or refresh provisioning profiles for Debug, Release, and Profile
   signing.
@@ -149,5 +147,5 @@ The widget reuses the Swift contract and reads the string stored at
 - Widget behavior still requires macOS/Xcode and physical-device validation.
 - URL validation confirms format and blocks unsafe schemes; it cannot prove that
   a target third-party app is installed.
-- The current bundle identifier is still the Flutter placeholder
-  `com.example.dumbphonehomescreen` and must be replaced before release.
+- Native iOS compilation, signing, provisioning, App Group behavior, and
+  WidgetKit behavior still require macOS/Xcode/Codemagic validation.

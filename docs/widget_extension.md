@@ -8,12 +8,12 @@ controls, Screen Time integration, subscriptions, or Android widgets.
 
 - Widget target name: `EssentialLauncherWidget`
 - Extension bundle identifier:
-  `com.example.dumbphonehomescreen.EssentialLauncherWidget`
+  `com.zyverio.focuslauncher.EssentialLauncherWidget`
 - Widget kind: `EssentialLauncherWidget`
-- App Group identifier: `group.com.example.dumbphonehomescreen`
-- Internal route scheme: `dumbphonehomescreen`
-- Route format: `dumbphonehomescreen://launch?id=<stable-entry-id>`
-- Empty-state setup route: `dumbphonehomescreen://setup`
+- App Group identifier: `group.com.zyverio.focuslauncher`
+- Internal route scheme: `focuslauncher`
+- Route format: `focuslauncher://launch?id=<stable-entry-id>`
+- Empty-state setup route: `focuslauncher://setup`
 - Deployment target: iOS 14.0
 
 The widget target is added to `ios/Runner.xcodeproj/project.pbxproj`, embedded
@@ -57,7 +57,7 @@ synthetic preview entries in production.
 Widget rows use internal routes instead of exposing third-party launch URLs:
 
 ```text
-dumbphonehomescreen://launch?id=<stable-entry-id>
+focuslauncher://launch?id=<stable-entry-id>
 ```
 
 The main Flutter app handles the route by:
@@ -93,11 +93,11 @@ with Larger Text, Bold Text, and Increased Contrast remains required.
 
 Required before release:
 
-- Replace placeholder bundle identifiers with developer-owned identifiers.
-- Register the main app bundle identifier.
-- Register `com.example.dumbphonehomescreen.EssentialLauncherWidget`, or renamed
-  equivalent, as an App Extension identifier.
-- Register the App Group and enable it for both the app and extension.
+- Register the main app bundle identifier `com.zyverio.focuslauncher`.
+- Register `com.zyverio.focuslauncher.EssentialLauncherWidget` as an App
+  Extension identifier.
+- Register `group.com.zyverio.focuslauncher` and enable it for both the app and
+  extension.
 - Refresh provisioning profiles for Runner and the extension.
 - Open the workspace in Xcode and verify the extension target, embed phase,
   entitlements, signing team, and shared schemes.
@@ -106,7 +106,8 @@ Required before release:
 
 ## Codemagic Requirements
 
-No Codemagic file was present, so no CI configuration was changed.
+`codemagic.yaml` contains an `ios-app-store` workflow for a signed Flutter iOS
+release with the Widget Extension embedded.
 
 Codemagic must provide:
 
@@ -121,8 +122,7 @@ Useful archive check on macOS CI:
 find build/ios/archive -name "EssentialLauncherWidget.appex" -print
 ```
 
-Do not commit certificates, provisioning profiles, API keys, or placeholder
-secrets.
+Do not commit certificates, provisioning profiles, API keys, or real secrets.
 
 ## Manual iPhone Test Matrix
 

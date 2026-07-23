@@ -11,7 +11,7 @@ final class SharedLauncherBridge {
 
   static func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
-      name: "com.example.dumbphonehomescreen/shared_launcher_data",
+      name: "com.zyverio.focuslauncher/shared_launcher_data",
       binaryMessenger: messenger
     )
     let bridge = SharedLauncherBridge()

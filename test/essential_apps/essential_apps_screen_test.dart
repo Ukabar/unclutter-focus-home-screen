@@ -1,9 +1,9 @@
-import 'package:dumbphone_homescreen/app/app.dart';
-import 'package:dumbphone_homescreen/features/essential_apps/catalog/app_catalog_repository.dart';
-import 'package:dumbphone_homescreen/features/essential_apps/catalog/catalog_app.dart';
-import 'package:dumbphone_homescreen/features/essential_apps/models/launcher_entry.dart';
-import 'package:dumbphone_homescreen/features/essential_apps/persistence/launcher_entry_repository.dart';
-import 'package:dumbphone_homescreen/features/essential_apps/persistence/launcher_entry_store.dart';
+import 'package:stillscreen_focus_launcher/app/app.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/catalog/app_catalog_repository.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/catalog/catalog_app.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/models/launcher_entry.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/persistence/launcher_entry_repository.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/persistence/launcher_entry_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -154,7 +154,7 @@ void main() {
     expect(find.text('Saved launcher data is corrupt.'), findsOneWidget);
 
     await tester.pumpWidget(
-      DumbphoneHomescreenApp(
+      StillscreenFocusLauncherApp(
         launcherEntryRepository: LauncherEntryRepository(
           store: FailingLauncherEntryStore(),
         ),
@@ -196,8 +196,10 @@ void main() {
   });
 }
 
-DumbphoneHomescreenApp _testApp({required MemoryLauncherEntryStore store}) {
-  return DumbphoneHomescreenApp(
+StillscreenFocusLauncherApp _testApp({
+  required MemoryLauncherEntryStore store,
+}) {
+  return StillscreenFocusLauncherApp(
     launcherEntryRepository: LauncherEntryRepository(store: store),
     appCatalogRepository: const StaticCatalogRepository(),
   );

@@ -11,8 +11,8 @@ import '../features/launcher_routes/launcher_route_dispatcher.dart';
 import '../features/launcher_routes/launcher_route_source.dart';
 import '../features/launcher_routes/launcher_target_opener.dart';
 
-class DumbphoneHomescreenApp extends StatefulWidget {
-  const DumbphoneHomescreenApp({
+class StillscreenFocusLauncherApp extends StatefulWidget {
+  const StillscreenFocusLauncherApp({
     super.key,
     this.launcherEntryRepository,
     this.appCatalogRepository,
@@ -24,10 +24,12 @@ class DumbphoneHomescreenApp extends StatefulWidget {
   final LauncherRouteDispatcher? launcherRouteDispatcher;
 
   @override
-  State<DumbphoneHomescreenApp> createState() => _DumbphoneHomescreenAppState();
+  State<StillscreenFocusLauncherApp> createState() =>
+      _StillscreenFocusLauncherAppState();
 }
 
-class _DumbphoneHomescreenAppState extends State<DumbphoneHomescreenApp> {
+class _StillscreenFocusLauncherAppState
+    extends State<StillscreenFocusLauncherApp> {
   late LauncherEntryRepository _launcherEntryRepository;
   late LauncherRouteDispatcher _launcherRouteDispatcher;
 
@@ -38,7 +40,7 @@ class _DumbphoneHomescreenAppState extends State<DumbphoneHomescreenApp> {
   }
 
   @override
-  void didUpdateWidget(DumbphoneHomescreenApp oldWidget) {
+  void didUpdateWidget(StillscreenFocusLauncherApp oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.launcherEntryRepository != widget.launcherEntryRepository ||
         oldWidget.launcherRouteDispatcher != widget.launcherRouteDispatcher) {
@@ -68,7 +70,7 @@ class _DumbphoneHomescreenAppState extends State<DumbphoneHomescreenApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Dumbphone Homescreen',
+      title: 'Stillscreen: Focus Launcher',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: AppTheme.light(),

@@ -18,7 +18,7 @@ class MethodChannelLauncherRouteSource implements LauncherRouteSource {
   }
 
   static const String _channelName =
-      'com.example.dumbphonehomescreen/launcher_routes';
+      'com.zyverio.focuslauncher/launcher_routes';
 
   final MethodChannel _channel;
   final StreamController<String> _routes = StreamController<String>.broadcast();

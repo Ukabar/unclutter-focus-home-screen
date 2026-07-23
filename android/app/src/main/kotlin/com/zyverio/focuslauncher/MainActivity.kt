@@ -1,4 +1,4 @@
-package com.example.dumbphone_homescreen
+package com.zyverio.focuslauncher
 
 import io.flutter.embedding.android.FlutterActivity
 

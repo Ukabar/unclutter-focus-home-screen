@@ -24,7 +24,7 @@ class MethodChannelSharedLauncherBridge implements SharedLauncherBridge {
   MethodChannelSharedLauncherBridge._(this._channel);
 
   static const String _channelName =
-      'com.example.dumbphonehomescreen/shared_launcher_data';
+      'com.zyverio.focuslauncher/shared_launcher_data';
 
   final MethodChannel _channel;
 

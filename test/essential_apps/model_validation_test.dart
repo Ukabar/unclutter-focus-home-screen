@@ -1,6 +1,6 @@
-import 'package:dumbphone_homescreen/features/essential_apps/catalog/app_catalog_repository.dart';
-import 'package:dumbphone_homescreen/features/essential_apps/models/launcher_entry.dart';
-import 'package:dumbphone_homescreen/features/essential_apps/validation/launch_url_validator.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/catalog/app_catalog_repository.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/models/launcher_entry.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/validation/launch_url_validator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

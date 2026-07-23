@@ -1,7 +1,7 @@
 class LauncherRoute {
   const LauncherRoute._({required this.kind, this.entryId});
 
-  static const String scheme = 'dumbphonehomescreen';
+  static const String scheme = 'focuslauncher';
   static const String launchHost = 'launch';
   static const String setupHost = 'setup';
 

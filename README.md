@@ -1,6 +1,6 @@
-# Dumbphone Homescreen
+# Stillscreen: Focus Launcher
 
-Dumbphone Homescreen is an iOS-first Flutter app for managing a small local list
+Stillscreen: Focus Launcher is an iOS-first Flutter app for managing a small local list
 of essential app shortcuts for a future text-based Home Screen widget companion.
 It does not replace iOS, scan installed applications, or guarantee that every
 third-party URL scheme works on every device.
@@ -115,17 +115,16 @@ time; malformed, unsafe, or duplicate catalog entries are skipped.
 - Native iOS language: Swift
 - Main app deployment target: iOS 14.0
 - App framework minimum OS version: iOS 14.0
-- Current bundle identifier: `com.example.dumbphonehomescreen`
+- Current bundle identifier: `com.zyverio.focuslauncher`
 - App Group identifier selected for Phase 3:
-  `group.com.example.dumbphonehomescreen`
+  `group.com.zyverio.focuslauncher`
 - Widget extension bundle identifier:
-  `com.example.dumbphonehomescreen.EssentialLauncherWidget`
+  `com.zyverio.focuslauncher.EssentialLauncherWidget`
 - Widget kind: `EssentialLauncherWidget`
-- Internal route scheme: `dumbphonehomescreen`
+- Internal route scheme: `focuslauncher`
 
 iOS 14.0 remains the chosen minimum because WidgetKit Home Screen widgets require
-iOS 14 or newer. Before release, replace the `com.example...` bundle identifier
-with a real developer-owned reverse-DNS identifier.
+iOS 14 or newer.
 
 ## Development Commands
 

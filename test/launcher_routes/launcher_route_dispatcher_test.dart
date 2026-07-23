@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:dumbphone_homescreen/features/essential_apps/models/launcher_entry.dart';
-import 'package:dumbphone_homescreen/features/essential_apps/persistence/launcher_entry_repository.dart';
-import 'package:dumbphone_homescreen/features/essential_apps/persistence/launcher_entry_store.dart';
-import 'package:dumbphone_homescreen/features/launcher_routes/launcher_route.dart';
-import 'package:dumbphone_homescreen/features/launcher_routes/launcher_route_dispatcher.dart';
-import 'package:dumbphone_homescreen/features/launcher_routes/launcher_route_source.dart';
-import 'package:dumbphone_homescreen/features/launcher_routes/launcher_target_opener.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/models/launcher_entry.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/persistence/launcher_entry_repository.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/persistence/launcher_entry_store.dart';
+import 'package:stillscreen_focus_launcher/features/launcher_routes/launcher_route.dart';
+import 'package:stillscreen_focus_launcher/features/launcher_routes/launcher_route_dispatcher.dart';
+import 'package:stillscreen_focus_launcher/features/launcher_routes/launcher_route_source.dart';
+import 'package:stillscreen_focus_launcher/features/launcher_routes/launcher_target_opener.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

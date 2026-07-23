@@ -86,7 +86,7 @@ struct EssentialLauncherWidgetView: View {
             LauncherWidgetRow(entry: item)
           }
           .accessibilityLabel(Text("Open \(item.name)"))
-          .accessibilityHint(Text("Opens this shortcut through Dumbphone."))
+          .accessibilityHint(Text("Opens this shortcut through Stillscreen."))
         }
       }
 

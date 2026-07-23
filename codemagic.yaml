@@ -1,0 +1,166 @@
+workflows:
+  testFlight:
+    name: "Stillscreen: Focus Launcher"
+    integrations:
+      app_store_connect: ZyverioFocusLauncher
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        provisioning_profiles:
+          - ProvisioningTESTE
+        certificates:
+          - CProvisioningTESTEertificate
+      vars:
+        MAIN_BUNDLE_ID: com.zyverio.focuslauncher
+        WIDGET_BUNDLE_ID: com.zyverio.focuslauncher.EssentialLauncherWidget
+        APP_GROUP_ID: group.com.zyverio.focuslauncher
+        WIDGET_EXTENSION_NAME: EssentialLauncherWidget
+    scripts:
+      - name: Set up code signing settings on Xcode project
+        script: xcode-project use-profiles
+      - name: Clean Flutter build artifacts
+        script: flutter clean
+      - name: Get Flutter packages
+        script: flutter packages pub get
+      - name: Analyze Flutter project
+        script: flutter analyze
+      - name: Run Flutter tests
+        script: flutter test
+      - name: Install CocoaPods dependencies
+        script: |
+          set -euo pipefail
+          if [ -f ios/Podfile ]; then
+            cd ios
+            pod install --repo-update
+          else
+            echo "No ios/Podfile found; skipping CocoaPods install."
+          fi
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Verify production identifiers
+        script: |
+          set -euo pipefail
+
+          grep -R -E "group[.]com[.](ukabar|example|company)|com[.](ukabar|example|company)" \
+            --exclude-dir=.git \
+            --exclude-dir=build \
+            --exclude-dir=.dart_tool \
+            --exclude-dir=.gradle \
+            . && {
+              echo "Old or placeholder identifiers were found."
+              exit 1
+            } || true
+
+          grep -R "$MAIN_BUNDLE_ID" ios android lib test docs README.md codemagic.yaml >/dev/null
+          grep -R "$WIDGET_BUNDLE_ID" ios docs README.md codemagic.yaml >/dev/null
+          grep -R "$APP_GROUP_ID" ios docs README.md codemagic.yaml >/dev/null
+          grep -R "focuslauncher" ios lib test docs README.md codemagic.yaml >/dev/null
+
+          echo "Production identifiers verified."
+      - name: Verify iOS app icons have no alpha
+        script: |
+          python3 - <<'PY'
+          import pathlib
+          import struct
+          import sys
+
+          icon_dir = pathlib.Path("ios/Runner/Assets.xcassets/AppIcon.appiconset")
+          failures = []
+
+          def png_info(path):
+              data = path.read_bytes()
+              if data[:8] != b"\x89PNG\r\n\x1a\n":
+                  failures.append(f"{path.name}: not a PNG file")
+                  return
+
+              width, height, bit_depth, color_type = struct.unpack(">IIBB", data[16:26])
+              offset = 8
+              has_trns = False
+              while offset + 12 <= len(data):
+                  length = struct.unpack(">I", data[offset:offset + 4])[0]
+                  chunk_type = data[offset + 4:offset + 8]
+                  if chunk_type == b"tRNS":
+                      has_trns = True
+                  offset += 12 + length
+                  if chunk_type == b"IEND":
+                      break
+
+              if color_type in (4, 6) or has_trns:
+                  failures.append(
+                      f"{path.name}: {width}x{height}, color_type={color_type}, tRNS={has_trns}"
+                  )
+
+          for path in sorted(icon_dir.glob("*.png")):
+              png_info(path)
+
+          if failures:
+              print("Invalid iOS AppIcon PNG files with alpha/transparency:")
+              print("\n".join(failures))
+              sys.exit(1)
+
+          print("All iOS AppIcon PNG files are opaque RGB/Indexed/Grayscale without tRNS.")
+          PY
+      - name: Build IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+      - name: Verify packaged Runner.app and Widget extension exist
+        script: |
+          set -euo pipefail
+
+          IPA_PATH="$(ls -1 build/ios/ipa/*.ipa | head -n 1)"
+          TEST_DIR="/tmp/zyverio_focus_launcher_ipa"
+          rm -rf "$TEST_DIR"
+          mkdir -p "$TEST_DIR"
+          unzip -q "$IPA_PATH" -d "$TEST_DIR"
+
+          RUNNER_APP="$TEST_DIR/Payload/Runner.app"
+          WIDGET_APPEX="$RUNNER_APP/PlugIns/$WIDGET_EXTENSION_NAME.appex"
+
+          test -d "$RUNNER_APP"
+          test -f "$RUNNER_APP/Assets.car"
+          test -d "$WIDGET_APPEX"
+          test -f "$WIDGET_APPEX/Info.plist"
+
+          assetutil --info "$RUNNER_APP/Assets.car" > "$TEST_DIR/assets-car-info.json"
+
+          echo "Packaged Runner.app, Assets.car, and $WIDGET_EXTENSION_NAME.appex verified."
+      - name: Verify packaged identifiers and entitlements
+        script: |
+          set -euo pipefail
+
+          TEST_DIR="/tmp/zyverio_focus_launcher_ipa"
+          RUNNER_APP="$TEST_DIR/Payload/Runner.app"
+          WIDGET_APPEX="$RUNNER_APP/PlugIns/$WIDGET_EXTENSION_NAME.appex"
+
+          RUNNER_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$RUNNER_APP/Info.plist")"
+          WIDGET_PACKAGED_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$WIDGET_APPEX/Info.plist")"
+          WIDGET_EXTENSION_POINT="$(/usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$WIDGET_APPEX/Info.plist")"
+
+          test "$RUNNER_BUNDLE_ID" = "$MAIN_BUNDLE_ID"
+          test "$WIDGET_PACKAGED_BUNDLE_ID" = "$WIDGET_BUNDLE_ID"
+          test "$WIDGET_EXTENSION_POINT" = "com.apple.widgetkit-extension"
+
+          codesign -d --entitlements :- "$RUNNER_APP" > "$TEST_DIR/runner-entitlements.plist"
+          codesign -d --entitlements :- "$WIDGET_APPEX" > "$TEST_DIR/widget-entitlements.plist"
+
+          /usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups" "$TEST_DIR/runner-entitlements.plist" | grep "$APP_GROUP_ID"
+          /usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups" "$TEST_DIR/widget-entitlements.plist" | grep "$APP_GROUP_ID"
+
+          echo "Packaged bundle identifiers, WidgetKit extension point, and App Group entitlements verified."
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/zyverio_focus_launcher_ipa/assets-car-info.json
+      - /tmp/zyverio_focus_launcher_ipa/runner-entitlements.plist
+      - /tmp/zyverio_focus_launcher_ipa/widget-entitlements.plist
+    publishing:
+      email:
+        recipients:
+          - hornet.devlo@gmail.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
