@@ -11,7 +11,7 @@ workflows:
         provisioning_profiles:
           - ProvisioningTESTE
         certificates:
-          - CProvisioningTESTEertificate
+          - Certificate
       vars:
         MAIN_BUNDLE_ID: com.zyverio.focuslauncher
         WIDGET_BUNDLE_ID: com.zyverio.focuslauncher.EssentialLauncherWidget
