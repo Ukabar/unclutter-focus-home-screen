@@ -9,9 +9,9 @@ workflows:
       cocoapods: default
       ios_signing:
         provisioning_profiles:
-          - ProvisioningTESTE
+          - ZyverioFocusLauncher
         certificates:
-          - Certificate
+          - FocusLauncher
       vars:
         MAIN_BUNDLE_ID: com.zyverio.focuslauncher
         WIDGET_BUNDLE_ID: com.zyverio.focuslauncher.EssentialLauncherWidget
