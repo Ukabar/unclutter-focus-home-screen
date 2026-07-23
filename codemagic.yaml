@@ -10,6 +10,7 @@ workflows:
       ios_signing:
         provisioning_profiles:
           - ZyverioFocusLauncher
+          - ZyverioFocusLauncherWidget
         certificates:
           - FocusLauncher
       vars:
