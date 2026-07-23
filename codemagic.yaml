@@ -2,7 +2,7 @@ workflows:
   testFlight:
     name: "Stillscreen: Focus Launcher"
     integrations:
-      app_store_connect: ZyverioFocusLauncher
+      app_store_connect: SpeedTeste
     environment:
       flutter: stable
       xcode: latest
