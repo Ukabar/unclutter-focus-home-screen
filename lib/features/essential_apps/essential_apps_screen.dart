@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/brand/stillscreen_logo.dart';
 import 'catalog/app_catalog_repository.dart';
 import 'catalog/catalog_app.dart';
 import 'models/launcher_entry.dart';
@@ -329,7 +330,13 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Essential apps')),
+      appBar: AppBar(
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 16),
+          child: Center(child: StillscreenLogo(size: 32)),
+        ),
+        title: const Text('Essential apps'),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('add-app-button'),
         onPressed: _isLoading ? null : _openAddSheet,
