@@ -28,9 +28,15 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SharedLauncherBridge")
-    SharedLauncherBridge.register(with: registrar.messenger())
-    let routeRegistrar = engineBridge.pluginRegistry.registrar(forPlugin: "LauncherRouteBridge")
-    LauncherRouteBridge.register(with: routeRegistrar.messenger())
+    if let sharedLauncherRegistrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "SharedLauncherBridge"
+    ) {
+      SharedLauncherBridge.register(with: sharedLauncherRegistrar.messenger())
+    }
+    if let launcherRouteRegistrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "LauncherRouteBridge"
+    ) {
+      LauncherRouteBridge.register(with: launcherRouteRegistrar.messenger())
+    }
   }
 }
