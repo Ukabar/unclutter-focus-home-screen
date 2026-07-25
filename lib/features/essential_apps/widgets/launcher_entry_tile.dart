@@ -1,6 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/launcher_entry.dart';
+import 'premium_components.dart';
 
 class LauncherEntryTile extends StatelessWidget {
   const LauncherEntryTile({
@@ -29,56 +31,117 @@ class LauncherEntryTile extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-          borderRadius: BorderRadius.circular(8),
-          color: theme.colorScheme.surface,
-        ),
-        child: ListTile(
-          contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-          title: Text(entry.name),
-          subtitle: Text(
-            entry.category == null
-                ? entry.launchUrl
-                : '${entry.category} • ${entry.launchUrl}',
-          ),
-          leading: ReorderableDragStartListener(
-            index: index,
-            child: const Icon(Icons.drag_handle),
-          ),
-          trailing: Wrap(
-            spacing: 2,
-            children: <Widget>[
-              IconButton(
-                key: Key('move-up-${entry.id}'),
-                tooltip: 'Move ${entry.name} up',
-                onPressed: isFirst ? null : onMoveUp,
-                icon: const Icon(Icons.keyboard_arrow_up),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: PremiumCard(
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        child: Row(
+          children: <Widget>[
+            ReorderableDragStartListener(
+              index: index,
+              child: Container(
+                width: 34,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.42,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  CupertinoIcons.line_horizontal_3,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  size: 17,
+                ),
               ),
-              IconButton(
-                key: Key('move-down-${entry.id}'),
-                tooltip: 'Move ${entry.name} down',
-                onPressed: isLast ? null : onMoveDown,
-                icon: const Icon(Icons.keyboard_arrow_down),
+            ),
+            const SizedBox(width: 12),
+            AppGlyph(name: entry.name, size: 46),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    entry.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    entry.category == null
+                        ? entry.launchUrl
+                        : '${entry.category} - ${entry.launchUrl}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
-              IconButton(
-                key: Key('edit-${entry.id}'),
-                tooltip: 'Edit ${entry.name}',
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined),
-              ),
-              IconButton(
-                key: Key('delete-${entry.id}'),
-                tooltip: 'Remove ${entry.name}',
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline),
-              ),
-            ],
-          ),
+            ),
+            _TileIconButton(
+              key: Key('move-up-${entry.id}'),
+              tooltip: 'Move ${entry.name} up',
+              icon: CupertinoIcons.chevron_up,
+              onPressed: isFirst ? null : onMoveUp,
+            ),
+            _TileIconButton(
+              key: Key('move-down-${entry.id}'),
+              tooltip: 'Move ${entry.name} down',
+              icon: CupertinoIcons.chevron_down,
+              onPressed: isLast ? null : onMoveDown,
+            ),
+            _TileIconButton(
+              key: Key('edit-${entry.id}'),
+              tooltip: 'Edit ${entry.name}',
+              icon: CupertinoIcons.pencil,
+              onPressed: onEdit,
+            ),
+            _TileIconButton(
+              key: Key('delete-${entry.id}'),
+              tooltip: 'Remove ${entry.name}',
+              icon: CupertinoIcons.trash,
+              onPressed: onDelete,
+              isDestructive: true,
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _TileIconButton extends StatelessWidget {
+  const _TileIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.isDestructive = false,
+    super.key,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      iconSize: 19,
+      color: isDestructive
+          ? theme.colorScheme.error
+          : theme.colorScheme.onSurfaceVariant,
+      disabledColor: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.24),
+      icon: Icon(icon),
     );
   }
 }

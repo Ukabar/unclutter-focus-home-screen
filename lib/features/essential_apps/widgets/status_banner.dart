@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'premium_components.dart';
+
 class StatusBanner extends StatelessWidget {
   const StatusBanner({
     required this.message,
@@ -23,21 +25,15 @@ class StatusBanner extends StatelessWidget {
       liveRegion: true,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: color),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Icon(icon, color: color),
-                const SizedBox(width: 12),
-                Expanded(child: Text(message)),
-              ],
-            ),
+        child: PremiumCard(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(icon, color: color),
+              const SizedBox(width: 12),
+              Expanded(child: Text(message)),
+            ],
           ),
         ),
       ),
