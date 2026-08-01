@@ -180,67 +180,78 @@ class _CatalogPickerSheetState extends State<CatalogPickerSheet> {
         top: widget.isFullScreen,
         child: SizedBox(
           height: height,
-          child: Stack(
-            children: <Widget>[
-              CustomScrollView(
-                key: const PageStorageKey<String>('catalog-picker-scroll'),
-                controller: _scrollController,
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                slivers: <Widget>[
-                  SliverToBoxAdapter(
-                    child: _AppPickerHeader(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: mediaQuery.size.width >= 600
+                    ? 760
+                    : mediaQuery.size.width,
+              ),
+              child: Stack(
+                children: <Widget>[
+                  CustomScrollView(
+                    key: const PageStorageKey<String>('catalog-picker-scroll'),
+                    controller: _scrollController,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    slivers: <Widget>[
+                      SliverToBoxAdapter(
+                        child: _AppPickerHeader(
+                          count: _selectedCount,
+                          limit: _selectionLimit,
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          isFocused: _isSearchFocused,
+                          onChanged: (String value) {
+                            setState(() => _query = _normalizedQuery(value));
+                          },
+                          onClear: _query.isEmpty ? null : _clearSearch,
+                          onManualEntry: _openManualEntry,
+                        ),
+                      ),
+                      if (_selectedEntries.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: _SelectedAppsSection(
+                            entries: _selectedEntries,
+                            onRemove: _removeSelectedEntry,
+                          ),
+                        ),
+                      if (filteredApps.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _EmptySearchState(
+                            onManualEntry: _openManualEntry,
+                          ),
+                        )
+                      else
+                        SliverList.builder(
+                          itemCount: sections.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            return _AppSectionCard(
+                              section: sections[index],
+                              selectedKeys: _selectedKeys,
+                              isLimitReached: _isLimitReached,
+                              onToggle: _toggleApp,
+                            );
+                          },
+                        ),
+                      SliverToBoxAdapter(
+                        child: SizedBox(height: 118 + bottomInset),
+                      ),
+                    ],
+                  ),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: _BottomSelectionAction(
+                      label: _continueLabel,
                       count: _selectedCount,
                       limit: _selectionLimit,
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      isFocused: _isSearchFocused,
-                      onChanged: (String value) {
-                        setState(() => _query = _normalizedQuery(value));
-                      },
-                      onClear: _query.isEmpty ? null : _clearSearch,
-                      onManualEntry: _openManualEntry,
+                      onPressed: _selectedCount == 0 ? null : _finishSelection,
                     ),
-                  ),
-                  if (_selectedEntries.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: _SelectedAppsSection(
-                        entries: _selectedEntries,
-                        onRemove: _removeSelectedEntry,
-                      ),
-                    ),
-                  if (filteredApps.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _EmptySearchState(onManualEntry: _openManualEntry),
-                    )
-                  else
-                    SliverList.builder(
-                      itemCount: sections.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        return _AppSectionCard(
-                          section: sections[index],
-                          selectedKeys: _selectedKeys,
-                          isLimitReached: _isLimitReached,
-                          onToggle: _toggleApp,
-                        );
-                      },
-                    ),
-                  SliverToBoxAdapter(
-                    child: SizedBox(height: 118 + bottomInset),
                   ),
                 ],
               ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: _BottomSelectionAction(
-                  label: _continueLabel,
-                  count: _selectedCount,
-                  limit: _selectionLimit,
-                  onPressed: _selectedCount == 0 ? null : _finishSelection,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

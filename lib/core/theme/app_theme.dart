@@ -10,20 +10,18 @@ class AppTheme {
   static const Color accent = Color(0xFF7FB6FF);
   static const Color sage = Color(0xFF92A98E);
 
-  static const Color _seedColor = accent;
-
-  static ThemeData light() {
+  static ThemeData light({Color accentColor = accent}) {
     final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: _seedColor,
+      seedColor: accentColor,
       brightness: Brightness.light,
     );
 
     return _themeFrom(colorScheme);
   }
 
-  static ThemeData dark() {
-    const ColorScheme colorScheme = ColorScheme.dark(
-      primary: accent,
+  static ThemeData dark({Color accentColor = accent}) {
+    final ColorScheme colorScheme = ColorScheme.dark(
+      primary: accentColor,
       onPrimary: Color(0xFF001E35),
       secondary: sage,
       onSecondary: Color(0xFF0B1512),

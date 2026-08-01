@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class SharedLauncherBridgeResult {
@@ -19,14 +20,16 @@ abstract interface class SharedLauncherBridge {
 class MethodChannelSharedLauncherBridge implements SharedLauncherBridge {
   MethodChannelSharedLauncherBridge({
     MethodChannel channel = const MethodChannel(_channelName),
-  }) : this._(channel);
+    TargetPlatform? platform,
+  }) : this._(channel, platform ?? defaultTargetPlatform);
 
-  MethodChannelSharedLauncherBridge._(this._channel);
+  MethodChannelSharedLauncherBridge._(this._channel, this._platform);
 
   static const String _channelName =
       'com.zyverio.focuslauncher/shared_launcher_data';
 
   final MethodChannel _channel;
+  final TargetPlatform _platform;
 
   @override
   Future<SharedLauncherBridgeResult> writeSharedLauncherData(
@@ -57,6 +60,10 @@ class MethodChannelSharedLauncherBridge implements SharedLauncherBridge {
     String method, {
     Object? arguments,
   }) async {
+    if (_platform != TargetPlatform.iOS) {
+      return const SharedLauncherBridgeResult();
+    }
+
     try {
       final Object? result = await _channel.invokeMethod<Object?>(
         method,
@@ -74,6 +81,11 @@ class MethodChannelSharedLauncherBridge implements SharedLauncherBridge {
       throw SharedLauncherBridgeException(
         code: SharedLauncherBridgeErrorCode.fromPlatformCode(error.code),
         message: error.message ?? 'Shared launcher data operation failed.',
+      );
+    } on MissingPluginException {
+      throw const SharedLauncherBridgeException(
+        code: SharedLauncherBridgeErrorCode.widgetReloadFailed,
+        message: 'Your apps were saved, but the Widget could not be updated.',
       );
     }
   }

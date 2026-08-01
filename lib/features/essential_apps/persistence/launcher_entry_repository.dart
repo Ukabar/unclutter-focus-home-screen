@@ -22,6 +22,7 @@ class LauncherEntryRepository {
   LauncherEntryRepository._(this._store, this._sharedSynchronizer);
 
   static const int _schemaVersion = 1;
+  static const int maximumEntries = 12;
 
   final LauncherEntryStore _store;
   final SharedLauncherSynchronizer? _sharedSynchronizer;
@@ -63,6 +64,11 @@ class LauncherEntryRepository {
       int skippedEntries = 0;
 
       for (final Object? rawEntry in rawEntries) {
+        if (entries.length >= maximumEntries) {
+          skippedEntries++;
+          continue;
+        }
+
         final LauncherEntry? entry = LauncherEntry.fromJson(rawEntry);
         if (entry == null) {
           skippedEntries++;
@@ -98,6 +104,7 @@ class LauncherEntryRepository {
   }
 
   Future<void> saveEntries(List<LauncherEntry> entries) async {
+    _assertValidEntries(entries);
     final Map<String, Object?> data = <String, Object?>{
       'schemaVersion': _schemaVersion,
       'entries': entries.map((LauncherEntry entry) => entry.toJson()).toList(),
@@ -110,6 +117,9 @@ class LauncherEntryRepository {
   Future<List<LauncherEntry>> addEntry(LauncherEntry entry) async {
     _assertValidEntry(entry);
     final List<LauncherEntry> entries = await _currentEntries();
+    if (entries.length >= maximumEntries) {
+      throw const LauncherEntryLimitException();
+    }
     _assertNoDuplicate(entries, entry);
     final List<LauncherEntry> nextEntries = <LauncherEntry>[...entries, entry];
     await _saveLocalEntries(nextEntries);
@@ -136,6 +146,7 @@ class LauncherEntryRepository {
 
     final List<LauncherEntry> nextEntries = <LauncherEntry>[...entries];
     nextEntries[index] = entry;
+    _assertValidEntries(nextEntries);
     await _saveLocalEntries(nextEntries);
     await _syncSharedEntries(nextEntries);
     return List<LauncherEntry>.unmodifiable(nextEntries);
@@ -183,6 +194,7 @@ class LauncherEntryRepository {
   }
 
   Future<void> _saveLocalEntries(List<LauncherEntry> entries) async {
+    _assertValidEntries(entries);
     final Map<String, Object?> data = <String, Object?>{
       'schemaVersion': _schemaVersion,
       'entries': entries.map((LauncherEntry entry) => entry.toJson()).toList(),
@@ -197,10 +209,18 @@ class LauncherEntryRepository {
     } on SharedLauncherSyncFailure catch (error) {
       throw SharedLauncherSyncException(
         code: error.code,
-        message: error.message,
+        message: _sharedSyncUserMessage(error.code),
         entries: List<LauncherEntry>.unmodifiable(entries),
       );
     }
+  }
+
+  String _sharedSyncUserMessage(SharedLauncherBridgeErrorCode code) {
+    return switch (code) {
+      SharedLauncherBridgeErrorCode.appGroupUnavailable =>
+        'Your apps were saved, but Widget sync is only available on iPhone.',
+      _ => 'Your apps were saved, but the Widget could not be updated.',
+    };
   }
 
   Future<List<LauncherEntry>> _currentEntries() async {
@@ -231,6 +251,24 @@ class LauncherEntryRepository {
       throw const LauncherEntryException('The app entry is invalid.');
     }
   }
+
+  void _assertValidEntries(List<LauncherEntry> entries) {
+    if (entries.length > maximumEntries) {
+      throw const LauncherEntryLimitException();
+    }
+
+    final Set<String> seenIds = <String>{};
+    final Set<String> seenLaunchUrls = <String>{};
+    for (final LauncherEntry entry in entries) {
+      _assertValidEntry(entry);
+      final String duplicateKey = LaunchUrlValidator.duplicateKey(
+        entry.launchUrl,
+      );
+      if (!seenIds.add(entry.id) || !seenLaunchUrls.add(duplicateKey)) {
+        throw const DuplicateLauncherEntryException();
+      }
+    }
+  }
 }
 
 class LauncherEntryException implements Exception {
@@ -245,6 +283,10 @@ class LauncherEntryException implements Exception {
 class DuplicateLauncherEntryException extends LauncherEntryException {
   const DuplicateLauncherEntryException()
     : super('That app is already in your list.');
+}
+
+class LauncherEntryLimitException extends LauncherEntryException {
+  const LauncherEntryLimitException() : super('You can keep up to 12 apps.');
 }
 
 class SharedLauncherSyncException extends LauncherEntryException {

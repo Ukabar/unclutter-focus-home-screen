@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stillscreen_focus_launcher/app/app.dart';
 import 'package:stillscreen_focus_launcher/features/essential_apps/catalog/app_catalog_repository.dart';
@@ -6,9 +7,15 @@ import 'package:stillscreen_focus_launcher/features/essential_apps/catalog/catal
 import 'package:stillscreen_focus_launcher/features/essential_apps/models/launcher_entry.dart';
 import 'package:stillscreen_focus_launcher/features/essential_apps/persistence/launcher_entry_repository.dart';
 import 'package:stillscreen_focus_launcher/features/essential_apps/persistence/launcher_entry_store.dart';
+import 'package:stillscreen_focus_launcher/features/essential_apps/widgets/entry_form_dialog.dart';
+import 'package:stillscreen_focus_launcher/features/launcher_routes/launcher_target_opener.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   tearDown(() {
     final TestFlutterView view =
         TestWidgetsFlutterBinding.instance.platformDispatcher.views.single;
@@ -107,7 +114,10 @@ void main() {
 
     await tester.pumpWidget(_startupApp(store: store));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -220));
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -220),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Maps'));
     await tester.pumpAndSettle();
@@ -141,11 +151,180 @@ void main() {
 
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Reset'));
+    await tester.tap(find.text('Reset').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Reset Stillscreen?'), findsOneWidget);
+    await tester.tap(find.text('Reset').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Pick Essential Apps'), findsOneWidget);
     expect(find.text('0 / 12 selected'), findsOneWidget);
+  });
+
+  testWidgets('reset can be cancelled without clearing selected apps', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'stillscreen_onboarding_complete_v1': true,
+    });
+    final MemoryLauncherEntryStore store = MemoryLauncherEntryStore();
+    await LauncherEntryRepository(
+      store: store,
+    ).addEntry(LauncherEntry.fromUserInput(name: 'Maps', launchUrl: 'maps:'));
+
+    await tester.pumpWidget(_startupApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(
+      (await LauncherEntryRepository(store: store).loadEntries()).entries,
+      hasLength(1),
+    );
+    expect(find.text('Settings'), findsWidgets);
+  });
+
+  testWidgets('settings theme button opens selector and applies choice', (
+    tester,
+  ) async {
+    final MemoryLauncherEntryStore store = MemoryLauncherEntryStore();
+    await LauncherEntryRepository(
+      store: store,
+    ).addEntry(LauncherEntry.fromUserInput(name: 'Maps', launchUrl: 'maps:'));
+
+    await tester.pumpWidget(_testApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Theme'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('System'), findsWidgets);
+    expect(find.text('Light'), findsOneWidget);
+    expect(find.text('Dark'), findsWidgets);
+
+    await tester.tap(find.text('Dark').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dark'), findsWidgets);
+  });
+
+  testWidgets('first install uses default dark theme and dusk accent', (
+    tester,
+  ) async {
+    final MemoryLauncherEntryStore store = MemoryLauncherEntryStore();
+    await LauncherEntryRepository(
+      store: store,
+    ).addEntry(LauncherEntry.fromUserInput(name: 'Maps', launchUrl: 'maps:'));
+
+    await tester.pumpWidget(_testApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dark'), findsOneWidget);
+    expect(find.text('Dusk'), findsOneWidget);
+    expect(find.text('Coming soon'), findsOneWidget);
+    expect(find.text('Local only'), findsOneWidget);
+    expect(find.text('Stillscreen: Focus Launcher'), findsOneWidget);
+  });
+
+  testWidgets('saved settings are not replaced by defaults', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'stillscreen_theme_choice_v1': 'light',
+      'stillscreen_accent_choice_v1': 'sage',
+    });
+    final MemoryLauncherEntryStore store = MemoryLauncherEntryStore();
+    await LauncherEntryRepository(
+      store: store,
+    ).addEntry(LauncherEntry.fromUserInput(name: 'Maps', launchUrl: 'maps:'));
+
+    await tester.pumpWidget(_testApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Light'), findsOneWidget);
+    expect(find.text('Sage'), findsOneWidget);
+    expect(find.text('Dark'), findsNothing);
+    expect(find.text('Dusk'), findsNothing);
+  });
+
+  testWidgets('reset restores default settings', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'stillscreen_theme_choice_v1': 'light',
+      'stillscreen_accent_choice_v1': 'sage',
+    });
+    final MemoryLauncherEntryStore store = MemoryLauncherEntryStore();
+    await LauncherEntryRepository(
+      store: store,
+    ).addEntry(LauncherEntry.fromUserInput(name: 'Maps', launchUrl: 'maps:'));
+
+    await tester.pumpWidget(_testApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset').last);
+    await tester.pumpAndSettle();
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString('stillscreen_theme_choice_v1'), 'dark');
+    expect(preferences.getString('stillscreen_accent_choice_v1'), 'dusk');
+  });
+
+  testWidgets('settings accent color button applies choice', (tester) async {
+    final MemoryLauncherEntryStore store = MemoryLauncherEntryStore();
+    await LauncherEntryRepository(
+      store: store,
+    ).addEntry(LauncherEntry.fromUserInput(name: 'Maps', launchUrl: 'maps:'));
+
+    await tester.pumpWidget(_testApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Accent Color'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sage'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sage'), findsOneWidget);
+  });
+
+  testWidgets('settings privacy and about buttons open content', (
+    tester,
+  ) async {
+    final MemoryLauncherEntryStore store = MemoryLauncherEntryStore();
+    await LauncherEntryRepository(
+      store: store,
+    ).addEntry(LauncherEntry.fromUserInput(name: 'Maps', launchUrl: 'maps:'));
+
+    await tester.pumpWidget(_testApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Privacy'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('No tracking'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('About'));
+    await tester.pumpAndSettle();
+    expect(find.text('com.zyverio.focuslauncher'), findsOneWidget);
+    expect(find.text('Licenses'), findsOneWidget);
   });
 
   testWidgets('shows empty state and adds a curated app', (tester) async {
@@ -156,9 +335,12 @@ void main() {
 
     expect(find.text('Choose what deserves a place here.'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('empty-add-app-button')));
+    await tester.tap(find.byKey(const Key('add-first-app-button')));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -220));
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -220),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Maps'));
     await tester.pumpAndSettle();
@@ -183,9 +365,11 @@ void main() {
     await tester.pumpWidget(_testApp(store: store));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('add-app-button')));
     await tester.pumpAndSettle();
-    expect(find.text('1 / 12 selected'), findsOneWidget);
+    expect(find.text('1 / 12 selected'), findsWidgets);
     expect(find.text('Continue with 1 app'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.check_mark_circled_solid), findsWidgets);
 
@@ -194,7 +378,10 @@ void main() {
       'mail',
     );
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -180));
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -180),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Mail'), findsOneWidget);
@@ -206,7 +393,7 @@ void main() {
     await tester.pumpWidget(_testApp(store: store));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('empty-add-app-button')));
+    await tester.tap(find.byKey(const Key('add-first-app-button')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('catalog-search-field')),
@@ -238,18 +425,23 @@ void main() {
     await tester.pumpWidget(_testApp(store: store));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('add-app-button')));
     await tester.pumpAndSettle();
-    expect(find.text('1 / 12 selected'), findsOneWidget);
+    expect(find.text('1 / 12 selected'), findsWidgets);
 
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -180));
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -180),
+    );
     await tester.pumpAndSettle();
     await tester.tap(
       find.byIcon(CupertinoIcons.check_mark_circled_solid).first,
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('0 / 12 selected'), findsOneWidget);
+    expect(find.text('0 / 12 selected'), findsWidgets);
     expect(find.text('Continue'), findsOneWidget);
   });
 
@@ -277,20 +469,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('add-app-button')));
     await tester.pumpAndSettle();
-    expect(find.text('12 / 12 selected'), findsOneWidget);
+    expect(find.text('12 / 12 selected'), findsWidgets);
     expect(find.text('Limit reached'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('catalog-search-field')), '13');
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -260));
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -260),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('App 13'));
     await tester.pumpAndSettle();
 
     expect(find.text('You can keep up to 12 apps.'), findsOneWidget);
-    expect(find.text('12 / 12 selected'), findsOneWidget);
+    expect(find.text('12 / 12 selected'), findsWidgets);
   });
 
   testWidgets('manually adds a custom scheme', (tester) async {
@@ -299,7 +496,7 @@ void main() {
     await tester.pumpWidget(_testApp(store: store));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('empty-add-app-button')));
+    await tester.tap(find.byKey(const Key('add-first-app-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('manual-entry-button')));
     await tester.pumpAndSettle();
@@ -323,7 +520,7 @@ void main() {
     await tester.pumpWidget(_testApp(store: store));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('empty-add-app-button')));
+    await tester.tap(find.byKey(const Key('add-first-app-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('manual-entry-button')));
     await tester.pumpAndSettle();
@@ -337,6 +534,52 @@ void main() {
 
     expect(find.text('That URL scheme is not supported.'), findsOneWidget);
     expect(store.value, isNull);
+  });
+
+  testWidgets('manual entry exposes a test launch action', (tester) async {
+    final FakeLauncherTargetOpener opener = FakeLauncherTargetOpener(
+      result: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (BuildContext context) {
+              return TextButton(
+                onPressed: () {
+                  showDialog<LauncherEntry>(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return EntryFormDialog(targetOpener: opener);
+                    },
+                  );
+                },
+                child: const Text('Open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('entry-name-field')),
+      'Journal',
+    );
+    await tester.enterText(find.byKey(const Key('entry-url-field')), 'dayone:');
+    await tester.tap(find.byKey(const Key('entry-test-launch-button')));
+    await tester.pumpAndSettle();
+
+    expect(opener.openedUrls, <String>['dayone:']);
+    expect(
+      find.text(
+        'This link could not be opened. Check that the app is installed and supports this URL.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('edits, removes, and reorders selected entries', (tester) async {
@@ -361,10 +604,14 @@ void main() {
     await tester.tap(find.text('Apps'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(Key('actions-${mail.id}')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('move-up-${mail.id}')));
     await tester.pumpAndSettle();
     expect((await repository.loadEntries()).entries.first.name, 'Mail');
 
+    await tester.tap(find.byKey(Key('actions-${mail.id}')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('edit-${mail.id}')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('entry-name-field')), 'Email');
@@ -372,6 +619,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Email'), findsOneWidget);
 
+    await tester.tap(find.byKey(Key('actions-${mail.id}')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('delete-${mail.id}')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Remove'));
@@ -432,6 +681,47 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('Essential apps'), findsOneWidget);
+    }
+  });
+
+  testWidgets('app row handles compact, tablet, and long names', (
+    tester,
+  ) async {
+    final TestFlutterView view = tester.view;
+    view.devicePixelRatio = 3;
+
+    for (final Size logicalSize in <Size>[
+      const Size(320, 568),
+      const Size(390, 844),
+      const Size(768, 1024),
+    ]) {
+      final MemoryLauncherEntryStore store = MemoryLauncherEntryStore();
+      await LauncherEntryRepository(store: store).addEntry(
+        LauncherEntry.fromUserInput(
+          name: 'A very long focus application name that should truncate',
+          launchUrl: 'longfocus:',
+        ),
+      );
+      view.physicalSize = logicalSize * view.devicePixelRatio;
+
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(
+            size: logicalSize,
+            textScaler: const TextScaler.linear(1.6),
+          ),
+          child: _testApp(store: store),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apps'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text('A very long focus application name that should truncate'),
+        findsOneWidget,
+      );
     }
   });
 }
@@ -527,5 +817,18 @@ class LargeCatalogRepository implements AppCatalogRepository {
         );
       }),
     );
+  }
+}
+
+class FakeLauncherTargetOpener implements LauncherTargetOpener {
+  FakeLauncherTargetOpener({required this.result});
+
+  final bool result;
+  final List<String> openedUrls = <String>[];
+
+  @override
+  Future<bool> open(String launchUrl) async {
+    openedUrls.add(launchUrl);
+    return result;
   }
 }

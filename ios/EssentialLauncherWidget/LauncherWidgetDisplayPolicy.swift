@@ -3,7 +3,7 @@ import WidgetKit
 enum LauncherWidgetDisplayPolicy {
   static func supports(_ family: WidgetFamily) -> Bool {
     switch family {
-    case .systemMedium, .systemLarge:
+    case .systemSmall, .systemMedium, .systemLarge:
       return true
     default:
       return false
@@ -12,6 +12,8 @@ enum LauncherWidgetDisplayPolicy {
 
   static func displayLimit(for family: WidgetFamily) -> Int {
     switch family {
+    case .systemSmall:
+      return 3
     case .systemMedium:
       return 6
     case .systemLarge:

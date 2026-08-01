@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/settings/app_settings.dart';
 import '../core/theme/app_theme.dart';
+import '../features/ads/ads_controller.dart';
+import '../features/ads/remote_ads_config_service.dart';
 import '../features/essential_apps/catalog/app_catalog_repository.dart';
 import '../features/essential_apps/catalog/catalog_app.dart';
 import '../features/essential_apps/essential_apps_screen.dart';
@@ -39,10 +44,14 @@ class StillscreenFocusLauncherApp extends StatefulWidget {
 class _StillscreenFocusLauncherAppState
     extends State<StillscreenFocusLauncherApp> {
   static const String _onboardingKey = 'stillscreen_onboarding_complete_v1';
+  static const AppSettingsStore _settingsStore = AppSettingsStore();
 
   late LauncherEntryRepository _launcherEntryRepository;
   late AppCatalogRepository _appCatalogRepository;
   late LauncherRouteDispatcher _launcherRouteDispatcher;
+  AdsController? _adsController;
+  AppThemeChoice _themeChoice = DefaultSettings.themeChoice;
+  AppAccentChoice _accentChoice = DefaultSettings.accentChoice;
   bool _isCheckingOnboarding = true;
   bool _showOnboarding = false;
   bool _showInitialPicker = false;
@@ -70,9 +79,12 @@ class _StillscreenFocusLauncherAppState
   }
 
   Future<void> _loadOnboardingState() async {
+    final AppAppearanceSettings settings = await _settingsStore.load();
     if (!widget.showOnboarding) {
       setState(() {
         _isCheckingOnboarding = false;
+        _themeChoice = settings.themeChoice;
+        _accentChoice = settings.accentChoice;
         _showOnboarding = false;
         _showInitialPicker = false;
         _startupWarning = null;
@@ -91,6 +103,8 @@ class _StillscreenFocusLauncherAppState
 
     setState(() {
       _isCheckingOnboarding = false;
+      _themeChoice = settings.themeChoice;
+      _accentChoice = settings.accentChoice;
       _showOnboarding = !onboardingCompleted;
       _showInitialPicker = onboardingCompleted && entriesResult.entries.isEmpty;
       _startupWarning = entriesResult.warning;
@@ -114,6 +128,7 @@ class _StillscreenFocusLauncherAppState
       _showInitialPicker = true;
       _startupWarning = null;
     });
+    _adsController?.updateSessionState(pastOnboarding: false);
   }
 
   void _configureDependencies() {
@@ -136,6 +151,27 @@ class _StillscreenFocusLauncherAppState
           routeSource: MethodChannelLauncherRouteSource(),
           targetOpener: const UrlLauncherTargetOpener(),
         );
+
+    if (widget.launcherEntryRepository == null) {
+      unawaited(_configureAdsController());
+    }
+  }
+
+  Future<void> _configureAdsController() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    final AdsController controller = AdsController(
+      configService: RemoteAdsConfigService(preferences: preferences),
+      preferences: preferences,
+    );
+    await controller.initialize(
+      pastOnboarding: !_showOnboarding && !_showInitialPicker,
+    );
+    if (!mounted) {
+      controller.dispose();
+      return;
+    }
+    _adsController?.dispose();
+    setState(() => _adsController = controller);
   }
 
   Future<void> _completeInitialSelection(List<LauncherEntry> entries) async {
@@ -162,8 +198,12 @@ class _StillscreenFocusLauncherAppState
       if (!mounted) {
         return;
       }
+      assert(() {
+        debugPrint('Initial selection failed: $error');
+        return true;
+      }());
       setState(() {
-        _startupWarning = error.toString();
+        _startupWarning = 'Your apps could not be saved right now.';
       });
       return;
     }
@@ -176,22 +216,55 @@ class _StillscreenFocusLauncherAppState
       _showInitialPicker = false;
       _startupWarning = null;
     });
+    _adsController?.updateSessionState(pastOnboarding: true);
   }
 
   void _openInitialPickerAfterReset() {
     setState(() {
       _showInitialPicker = true;
     });
+    _adsController?.updateSessionState(pastOnboarding: false);
+  }
+
+  Future<void> _setThemeChoice(AppThemeChoice choice) async {
+    await _settingsStore.saveThemeChoice(choice);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _themeChoice = choice);
+  }
+
+  Future<void> _setAccentChoice(AppAccentChoice choice) async {
+    await _settingsStore.saveAccentChoice(choice);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _accentChoice = choice);
+  }
+
+  Future<void> _resetAppearanceSettingsToDefaults() async {
+    final AppAppearanceSettings settings = await _settingsStore
+        .resetToDefaults();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _themeChoice = settings.themeChoice;
+      _accentChoice = settings.accentChoice;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    _adsController?.updateSessionState(
+      pastOnboarding: !_showOnboarding && !_showInitialPicker,
+    );
     return MaterialApp(
       title: 'Stillscreen: Focus Launcher',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.system,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      themeMode: _themeChoice.themeMode,
+      theme: AppTheme.light(accentColor: _accentChoice.color),
+      darkTheme: AppTheme.dark(accentColor: _accentChoice.color),
       home: _isCheckingOnboarding
           ? const _LaunchLoadingScreen()
           : _showOnboarding
@@ -208,8 +281,20 @@ class _StillscreenFocusLauncherAppState
               appCatalogRepository: _appCatalogRepository,
               launcherRouteDispatcher: _launcherRouteDispatcher,
               onSelectionReset: _openInitialPickerAfterReset,
+              themeChoice: _themeChoice,
+              accentChoice: _accentChoice,
+              onThemeChoiceChanged: _setThemeChoice,
+              onAccentChoiceChanged: _setAccentChoice,
+              onSettingsReset: _resetAppearanceSettingsToDefaults,
+              adsController: _adsController,
             ),
     );
+  }
+
+  @override
+  void dispose() {
+    _adsController?.dispose();
+    super.dispose();
   }
 }
 
@@ -287,8 +372,12 @@ class _InitialAppPickerScreenState extends State<_InitialAppPickerScreen> {
       if (!mounted) {
         return;
       }
+      assert(() {
+        debugPrint('Initial picker load failed: $error');
+        return true;
+      }());
       setState(() {
-        _warning = error.toString();
+        _warning = 'The app picker could not be loaded right now.';
         _isLoading = false;
       });
     }

@@ -3,6 +3,7 @@ class LaunchUrlValidator {
     'about',
     'data',
     'file',
+    'focuslauncher',
     'javascript',
     'vbscript',
   };

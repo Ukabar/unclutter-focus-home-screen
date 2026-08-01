@@ -10,7 +10,7 @@ class SharedLauncherContract {
   });
 
   static const int schemaVersion = 1;
-  static const int maximumEntries = 24;
+  static const int maximumEntries = 12;
   static const int maximumNameLength = 60;
   static const int maximumLaunchUrlLength = 512;
 

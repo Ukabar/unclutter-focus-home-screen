@@ -178,7 +178,7 @@ struct EssentialLauncherWidget: Widget {
     }
     .configurationDisplayName("Essential Apps")
     .description("A quiet text launcher for your selected shortcuts.")
-    .supportedFamilies([.systemMedium, .systemLarge])
+    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
   }
 }
 

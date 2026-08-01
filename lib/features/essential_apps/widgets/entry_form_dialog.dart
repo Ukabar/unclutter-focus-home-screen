@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../../launcher_routes/launcher_target_opener.dart';
 import '../models/launcher_entry.dart';
 import '../validation/launch_url_validator.dart';
 import 'premium_components.dart';
 
 class EntryFormDialog extends StatefulWidget {
-  const EntryFormDialog({this.entry, super.key});
+  const EntryFormDialog({
+    this.entry,
+    this.targetOpener = const UrlLauncherTargetOpener(),
+    super.key,
+  });
 
   final LauncherEntry? entry;
+  final LauncherTargetOpener targetOpener;
 
   @override
   State<EntryFormDialog> createState() => _EntryFormDialogState();
@@ -17,6 +23,7 @@ class _EntryFormDialogState extends State<EntryFormDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _urlController;
+  bool _isTestingLaunch = false;
 
   bool get _isEditing => widget.entry != null;
 
@@ -50,6 +57,34 @@ class _EntryFormDialogState extends State<EntryFormDialog> {
           );
 
     Navigator.of(context).pop(nextEntry);
+  }
+
+  Future<void> _testLaunch() async {
+    final String? validationError = LaunchUrlValidator.validate(
+      _urlController.text,
+    );
+    if (validationError != null) {
+      _showMessage(validationError);
+      return;
+    }
+
+    setState(() => _isTestingLaunch = true);
+    final bool opened = await widget.targetOpener.open(_urlController.text);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isTestingLaunch = false);
+    _showMessage(
+      opened
+          ? 'Launch test sent. Return here to save it.'
+          : 'This link could not be opened. Check that the app is installed and supports this URL.',
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -100,6 +135,18 @@ class _EntryFormDialogState extends State<EntryFormDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: <Widget>[
+                    TextButton.icon(
+                      key: const Key('entry-test-launch-button'),
+                      onPressed: _isTestingLaunch ? null : _testLaunch,
+                      icon: _isTestingLaunch
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.open_in_new),
+                      label: const Text('Test'),
+                    ),
+                    const Spacer(),
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
                       child: const Text('Cancel'),

@@ -117,7 +117,8 @@ workflows:
           mkdir -p "$TEST_DIR"
           unzip -q "$IPA_PATH" -d "$TEST_DIR"
 
-          RUNNER_APP="$TEST_DIR/Payload/Runner.app"
+          RUNNER_APP="$(find "$TEST_DIR/Payload" -maxdepth 1 -type d -name "*.app" | head -n 1)"
+          test -n "$RUNNER_APP"
           WIDGET_APPEX="$RUNNER_APP/PlugIns/$WIDGET_EXTENSION_NAME.appex"
 
           test -d "$RUNNER_APP"
@@ -133,7 +134,8 @@ workflows:
           set -euo pipefail
 
           TEST_DIR="/tmp/zyverio_focus_launcher_ipa"
-          RUNNER_APP="$TEST_DIR/Payload/Runner.app"
+          RUNNER_APP="$(find "$TEST_DIR/Payload" -maxdepth 1 -type d -name "*.app" | head -n 1)"
+          test -n "$RUNNER_APP"
           WIDGET_APPEX="$RUNNER_APP/PlugIns/$WIDGET_EXTENSION_NAME.appex"
 
           RUNNER_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$RUNNER_APP/Info.plist")"

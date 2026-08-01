@@ -92,35 +92,59 @@ class PremiumSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool stacked =
+            constraints.maxWidth < 360 ||
+            MediaQuery.textScalerOf(context).scale(1) >= 1.35;
+        final Widget text = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              title,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            if (subtitle != null) ...<Widget>[
+              const SizedBox(height: 6),
               Text(
-                title,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
+                subtitle!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.35,
                 ),
               ),
-              if (subtitle != null) ...<Widget>[
-                const SizedBox(height: 6),
-                Text(
-                  subtitle!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
-                ),
-              ],
             ],
-          ),
-        ),
-        ?action,
-      ],
+          ],
+        );
+
+        final Widget? trailing = action;
+        if (stacked && trailing != null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              text,
+              const SizedBox(height: 12),
+              Align(alignment: Alignment.centerLeft, child: trailing),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: <Widget>[
+            Expanded(child: text),
+            if (trailing != null) ...<Widget>[
+              const SizedBox(width: 12),
+              Flexible(
+                child: Align(alignment: Alignment.centerRight, child: trailing),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

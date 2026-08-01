@@ -4,7 +4,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/brand/stillscreen_logo.dart';
+import '../../core/settings/app_settings.dart';
 import '../../core/theme/app_theme.dart';
+import '../ads/ad_banner.dart';
+import '../ads/ads_controller.dart';
 import '../launcher_routes/launcher_route_dispatcher.dart';
 import 'catalog/app_catalog_repository.dart';
 import 'catalog/catalog_app.dart';
@@ -23,6 +26,12 @@ class EssentialAppsScreen extends StatefulWidget {
     required this.appCatalogRepository,
     this.launcherRouteDispatcher,
     this.onSelectionReset,
+    this.themeChoice = DefaultSettings.themeChoice,
+    this.accentChoice = DefaultSettings.accentChoice,
+    this.onThemeChoiceChanged,
+    this.onAccentChoiceChanged,
+    this.onSettingsReset,
+    this.adsController,
     super.key,
   });
 
@@ -30,6 +39,12 @@ class EssentialAppsScreen extends StatefulWidget {
   final AppCatalogRepository appCatalogRepository;
   final LauncherRouteDispatcher? launcherRouteDispatcher;
   final VoidCallback? onSelectionReset;
+  final AppThemeChoice themeChoice;
+  final AppAccentChoice accentChoice;
+  final ValueChanged<AppThemeChoice>? onThemeChoiceChanged;
+  final ValueChanged<AppAccentChoice>? onAccentChoiceChanged;
+  final Future<void> Function()? onSettingsReset;
+  final AdsController? adsController;
 
   @override
   State<EssentialAppsScreen> createState() => _EssentialAppsScreenState();
@@ -123,9 +138,13 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
         return;
       }
 
+      assert(() {
+        debugPrint('Essential apps load failed: $error');
+        return true;
+      }());
       setState(() {
         _error = 'The list could not be loaded.';
-        _warning = error.toString();
+        _warning = 'Your apps could not be loaded right now.';
         _isLoading = false;
       });
     }
@@ -170,13 +189,13 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
   Future<void> _syncSharedDataAfterLoad() async {
     try {
       await widget.launcherEntryRepository.syncCurrentEntries();
-    } on SharedLauncherSyncException {
+    } on SharedLauncherSyncException catch (error) {
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _warning = _syncWarningMessage();
+        _warning = error.message;
       });
     }
   }
@@ -303,6 +322,9 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
         _entries = nextEntries;
         _error = null;
       });
+      await widget.adsController?.recordMeaningfulActionCompleted(
+        resultVisible: true,
+      );
     } on SharedLauncherSyncException catch (error) {
       if (!mounted) {
         return;
@@ -310,25 +332,28 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
 
       setState(() {
         _entries = error.entries;
-        _warning = _syncWarningMessage();
+        _warning = error.message;
         _error = null;
       });
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_syncWarningMessage())));
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      await widget.adsController?.recordMeaningfulActionCompleted(
+        resultVisible: true,
+      );
     } on LauncherEntryException catch (error) {
       _showError(error.message);
     } on Object catch (error) {
+      assert(() {
+        debugPrint('Essential apps mutation failed: $error');
+        return true;
+      }());
       setState(() {
-        _warning = error.toString();
+        _warning = 'The change could not be saved right now.';
       });
       _showError('The change could not be saved.');
     }
-  }
-
-  String _syncWarningMessage() {
-    return 'Saved locally, but widget sync is not available yet.';
   }
 
   void _showError(String message) {
@@ -371,7 +396,7 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
                         duration: const Duration(milliseconds: 260),
                         switchInCurve: Curves.easeOutCubic,
                         switchOutCurve: Curves.easeOutCubic,
-                        child: _buildTab(),
+                        child: _AdaptiveTabContainer(child: _buildTab()),
                       ),
                     ),
                   ],
@@ -391,9 +416,7 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
         key: const ValueKey<String>('home'),
         entries: _entries,
         onAddPressed: _openAddSheet,
-        onEditPressed: () => setState(() => _selectedTab = 1),
-        onWidgetPressed: () => setState(() => _selectedTab = 2),
-        onGuidePressed: () => setState(() => _selectedTab = 3),
+        adsController: widget.adsController,
       ),
       1 => _AppsTab(
         key: const ValueKey<String>('apps'),
@@ -419,14 +442,151 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
       ),
       _ => _SettingsTab(
         key: const ValueKey<String>('settings'),
-        entryCount: _entries.length,
-        onReset: () async {
-          await widget.launcherEntryRepository.saveEntries(<LauncherEntry>[]);
-          await _loadData();
-          widget.onSelectionReset?.call();
-        },
+        themeChoice: widget.themeChoice,
+        accentChoice: widget.accentChoice,
+        onThemePressed: _showThemeSelector,
+        onAccentPressed: _showAccentSelector,
+        onPrivacyPressed: _showPrivacyInfo,
+        onAboutPressed: _showAboutInfo,
+        onReset: _resetSelectedApps,
       ),
     };
+  }
+
+  Future<void> _showThemeSelector() async {
+    final AppThemeChoice? choice = await showModalBottomSheet<AppThemeChoice>(
+      context: context,
+      builder: (BuildContext context) {
+        return _SettingsSheet(
+          title: 'Theme',
+          children: AppThemeChoice.values.map((AppThemeChoice choice) {
+            return _SheetOption(
+              label: choice.label,
+              selected: choice == widget.themeChoice,
+              onTap: () => Navigator.of(context).pop(choice),
+            );
+          }).toList(),
+        );
+      },
+    );
+
+    if (choice != null) {
+      widget.onThemeChoiceChanged?.call(choice);
+    }
+  }
+
+  Future<void> _showAccentSelector() async {
+    final AppAccentChoice? choice = await showModalBottomSheet<AppAccentChoice>(
+      context: context,
+      builder: (BuildContext context) {
+        return _SettingsSheet(
+          title: 'Accent Color',
+          children: AppAccentChoice.values.map((AppAccentChoice choice) {
+            return _SheetOption(
+              label: choice.label,
+              selected: choice == widget.accentChoice,
+              leading: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: choice.color,
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox.square(dimension: 18),
+              ),
+              onTap: () => Navigator.of(context).pop(choice),
+            );
+          }).toList(),
+        );
+      },
+    );
+
+    if (choice != null) {
+      widget.onAccentChoiceChanged?.call(choice);
+    }
+  }
+
+  void _showPrivacyInfo() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return const _SettingsSheet(
+          title: 'Privacy',
+          children: <Widget>[
+            _SheetBodyText(
+              'Stillscreen keeps your selected apps on this device. On iPhone, Widget data is shared locally through App Groups. No tracking or installed-app scanning is used.',
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAboutInfo() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return _SettingsSheet(
+          title: 'About',
+          children: <Widget>[
+            const _SheetInfoRow(label: 'App name', value: 'Stillscreen'),
+            const _SheetInfoRow(
+              label: 'Display name',
+              value: DefaultSettings.aboutDisplayName,
+            ),
+            const _SheetInfoRow(label: 'Version', value: '1.0.0 (2)'),
+            const _SheetInfoRow(
+              label: 'Bundle ID',
+              value: 'com.zyverio.focuslauncher',
+            ),
+            _SheetOption(
+              label: 'Licenses',
+              onTap: () {
+                Navigator.of(context).pop();
+                showLicensePage(
+                  context: context,
+                  applicationName: 'Stillscreen',
+                  applicationVersion: '1.0.0 (2)',
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _resetSelectedApps() async {
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Reset Stillscreen?'),
+              content: const Text(
+                'This removes your selected apps and restores the default Dark theme with Dusk accent. Onboarding will not be reset.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Reset'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!confirmed) {
+      return;
+    }
+
+    await widget.onSettingsReset?.call();
+    await widget.launcherEntryRepository.saveEntries(<LauncherEntry>[]);
+    await _loadData();
+    widget.onSelectionReset?.call();
   }
 }
 
@@ -434,17 +594,13 @@ class _HomeTab extends StatelessWidget {
   const _HomeTab({
     required this.entries,
     required this.onAddPressed,
-    required this.onEditPressed,
-    required this.onWidgetPressed,
-    required this.onGuidePressed,
+    this.adsController,
     super.key,
   });
 
   final List<LauncherEntry> entries;
   final VoidCallback onAddPressed;
-  final VoidCallback onEditPressed;
-  final VoidCallback onWidgetPressed;
-  final VoidCallback onGuidePressed;
+  final AdsController? adsController;
 
   @override
   Widget build(BuildContext context) {
@@ -478,65 +634,6 @@ class _HomeTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        PremiumCard(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                entries.isEmpty
-                    ? 'Make your first screen quiet.'
-                    : 'Your quiet launcher is ready.',
-                style: theme.textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                entries.isEmpty
-                    ? 'Choose only the apps that support the day you want.'
-                    : '${entries.length} selected apps are ordered for the Widget and launcher routes.',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 22),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: <Widget>[
-                  PremiumActionButton(
-                    keyName: entries.isEmpty
-                        ? 'empty-add-app-button'
-                        : 'add-app-button',
-                    label: 'Add Apps',
-                    icon: CupertinoIcons.plus,
-                    onPressed: onAddPressed,
-                    isPrimary: true,
-                  ),
-                  PremiumActionButton(
-                    label: 'Edit',
-                    icon: CupertinoIcons.slider_horizontal_3,
-                    onPressed: onEditPressed,
-                  ),
-                  PremiumActionButton(
-                    label: 'Widget Preview',
-                    icon: CupertinoIcons.rectangle_grid_2x2,
-                    onPressed: onWidgetPressed,
-                  ),
-                  PremiumActionButton(
-                    label: 'Setup Guide',
-                    icon: CupertinoIcons.map,
-                    onPressed: onGuidePressed,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 22),
         PremiumSectionHeader(
           title: 'Selected apps',
           subtitle: 'A restrained preview of the list your Widget reads.',
@@ -607,6 +704,10 @@ class _HomeTab extends StatelessWidget {
               }).toList(),
             ),
           ),
+        if (adsController != null) ...<Widget>[
+          const SizedBox(height: 16),
+          RemoteBannerAd(controller: adsController!),
+        ],
       ],
     );
   }
@@ -848,12 +949,22 @@ class _SetupGuideTab extends StatelessWidget {
 
 class _SettingsTab extends StatelessWidget {
   const _SettingsTab({
-    required this.entryCount,
+    required this.themeChoice,
+    required this.accentChoice,
+    required this.onThemePressed,
+    required this.onAccentPressed,
+    required this.onPrivacyPressed,
+    required this.onAboutPressed,
     required this.onReset,
     super.key,
   });
 
-  final int entryCount;
+  final AppThemeChoice themeChoice;
+  final AppAccentChoice accentChoice;
+  final VoidCallback onThemePressed;
+  final VoidCallback onAccentPressed;
+  final VoidCallback onPrivacyPressed;
+  final VoidCallback onAboutPressed;
   final VoidCallback onReset;
 
   @override
@@ -869,27 +980,32 @@ class _SettingsTab extends StatelessWidget {
         _SettingsRow(
           icon: CupertinoIcons.paintbrush,
           title: 'Theme',
-          value: 'System dark',
+          value: themeChoice.label,
+          onTap: onThemePressed,
         ),
         _SettingsRow(
           icon: CupertinoIcons.drop,
           title: 'Accent Color',
-          value: 'Quiet Blue',
+          value: accentChoice.label,
+          onTap: onAccentPressed,
         ),
         _SettingsRow(
           icon: CupertinoIcons.rectangle_grid_2x2,
           title: 'Widget Style',
-          value: '$entryCount apps selected',
+          value: DefaultSettings.widgetStyle.label,
+          enabled: DefaultSettings.widgetStyle.enabled,
         ),
         _SettingsRow(
           icon: CupertinoIcons.lock_shield,
           title: 'Privacy',
-          value: 'Local only',
+          value: DefaultSettings.privacy.label,
+          onTap: onPrivacyPressed,
         ),
         _SettingsRow(
           icon: CupertinoIcons.info_circle,
           title: 'About',
-          value: 'Stillscreen: Focus Launcher',
+          value: DefaultSettings.aboutDisplayName,
+          onTap: onAboutPressed,
         ),
         const SizedBox(height: 18),
         PremiumActionButton(
@@ -907,39 +1023,260 @@ class _SettingsRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.value,
+    this.onTap,
+    this.enabled = true,
   });
 
   final IconData icon;
   final String title;
+  final String value;
+  final VoidCallback? onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final Color contentColor = enabled
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.58);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Semantics(
+        button: onTap != null,
+        enabled: enabled,
+        label: '$title, $value',
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(28),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(28),
+            onTap: enabled ? onTap : null,
+            child: PremiumCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    icon,
+                    color: enabled
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.46,
+                          ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: contentColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    CupertinoIcons.chevron_right,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: enabled ? 0.72 : 0.32,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdaptiveTabContainer extends StatelessWidget {
+  const _AdaptiveTabContainer({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool tablet = constraints.maxWidth >= 600;
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: tablet ? 760 : constraints.maxWidth,
+            ),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SettingsSheet extends StatelessWidget {
+  const _SettingsSheet({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          18,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                title,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 14),
+              ...children,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetOption extends StatelessWidget {
+  const _SheetOption({
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+    this.leading,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Row(
+                children: <Widget>[
+                  if (leading != null) ...<Widget>[
+                    leading!,
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (selected)
+                    Icon(
+                      CupertinoIcons.check_mark_circled_solid,
+                      color: theme.colorScheme.primary,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetBodyText extends StatelessWidget {
+  const _SheetBodyText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        height: 1.45,
+      ),
+    );
+  }
+}
+
+class _SheetInfoRow extends StatelessWidget {
+  const _SheetInfoRow({required this.label, required this.value});
+
+  final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: PremiumCard(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: <Widget>[
-            Icon(icon, color: theme.colorScheme.primary),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            Text(
-              value,
-              style: theme.textTheme.bodySmall?.copyWith(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SizedBox(
+            width: 118,
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

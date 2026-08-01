@@ -6,7 +6,7 @@ enum SharedLauncherConstants {
   static let widgetKind = "EssentialLauncherWidget"
   static let internalRouteScheme = "focuslauncher"
   static let currentSchemaVersion = 1
-  static let maximumEntries = 24
+  static let maximumEntries = 12
   static let maximumNameLength = 60
   static let maximumLaunchURLLength = 512
   static let maximumIdentifierLength = 128

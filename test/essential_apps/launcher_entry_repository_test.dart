@@ -60,6 +60,43 @@ void main() {
     );
   });
 
+  test('enforces the 12 app limit at the repository layer', () async {
+    for (
+      int index = 1;
+      index <= LauncherEntryRepository.maximumEntries;
+      index++
+    ) {
+      await repository.addEntry(
+        LauncherEntry.fromUserInput(
+          name: 'App $index',
+          launchUrl: 'app$index:',
+        ),
+      );
+    }
+
+    expect(
+      () => repository.addEntry(
+        LauncherEntry.fromUserInput(name: 'Overflow', launchUrl: 'overflow:'),
+      ),
+      throwsA(isA<LauncherEntryLimitException>()),
+    );
+
+    expect(
+      () => repository.saveEntries(<LauncherEntry>[
+        for (
+          int index = 1;
+          index <= LauncherEntryRepository.maximumEntries + 1;
+          index++
+        )
+          LauncherEntry.fromUserInput(
+            name: 'Saved App $index',
+            launchUrl: 'savedapp$index:',
+          ),
+      ]),
+      throwsA(isA<LauncherEntryLimitException>()),
+    );
+  });
+
   test('corrupt stored data falls back safely', () async {
     store.value = 'not json';
 
@@ -96,6 +133,23 @@ void main() {
     expect(result.entries, hasLength(1));
     expect(result.entries.single.name, 'Maps');
     expect(result.warning, '3 saved entries were skipped.');
+  });
+
+  test('stored entries beyond the limit are skipped safely', () async {
+    store.value =
+        '''
+{
+  "schemaVersion": 1,
+  "entries": [
+    ${List<String>.generate(LauncherEntryRepository.maximumEntries + 1, (int index) => '{"id":"entry-$index","name":"App $index","launchUrl":"app$index:"}').join(',')}
+  ]
+}
+''';
+
+    final LauncherLoadResult result = await repository.loadEntries();
+
+    expect(result.entries, hasLength(LauncherEntryRepository.maximumEntries));
+    expect(result.warning, '1 saved entries were skipped.');
   });
 }
 

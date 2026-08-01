@@ -86,6 +86,23 @@ void main() {
     expect(contract.entries.single.id, 'a');
   });
 
+  test('limits shared widget payload to 12 entries', () {
+    final SharedLauncherContract contract =
+        SharedLauncherContract.fromLauncherEntries(<LauncherEntry>[
+          for (
+            int index = 1;
+            index <= SharedLauncherContract.maximumEntries + 1;
+            index++
+          )
+            LauncherEntry.fromUserInput(
+              name: 'App $index',
+              launchUrl: 'app$index:',
+            ),
+        ], updatedAt: DateTime.utc(2026, 7, 23));
+
+    expect(contract.entries, hasLength(SharedLauncherContract.maximumEntries));
+  });
+
   test(
     'rejects unsupported schema, missing fields, and invalid timestamps',
     () {

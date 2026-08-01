@@ -66,6 +66,7 @@ void main() {
     expect(LaunchUrlValidator.validate(''), isNotNull);
     expect(LaunchUrlValidator.validate('example.com'), isNotNull);
     expect(LaunchUrlValidator.validate('https://'), isNotNull);
+    expect(LaunchUrlValidator.validate('focuslauncher://setup'), isNotNull);
     expect(LaunchUrlValidator.validate('javascript:alert(1)'), isNotNull);
     expect(LaunchUrlValidator.validate('data:text/plain,hello'), isNotNull);
   });
