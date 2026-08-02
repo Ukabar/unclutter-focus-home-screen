@@ -19,26 +19,76 @@ workflows:
         APP_GROUP_ID: group.com.zyverio.focuslauncher
         WIDGET_EXTENSION_NAME: EssentialLauncherWidget
     scripts:
-      - name: Set up code signing settings on Xcode project
-        script: xcode-project use-profiles
       - name: Clean Flutter build artifacts
         script: flutter clean
       - name: Get Flutter packages
-        script: flutter packages pub get
+        script: flutter pub get
+      - name: Verify Flutter iOS plugins
+        script: |
+          set -euo pipefail
+
+          test -f ios/Podfile
+          grep -F "platform :ios, '14.0'" ios/Podfile >/dev/null
+          grep -F "flutter_install_all_ios_pods" ios/Podfile >/dev/null
+          test -f .flutter-plugins-dependencies
+          test -f pubspec.lock
+
+          grep -F '"google_mobile_ads"' .flutter-plugins-dependencies >/dev/null || {
+            echo "google_mobile_ads was not resolved by Flutter."
+            exit 1
+          }
+
+          grep -F '"webview_flutter_wkwebview"' .flutter-plugins-dependencies >/dev/null || {
+            echo "webview_flutter_wkwebview was not resolved by Flutter."
+            exit 1
+          }
+
+          grep -F "google_mobile_ads:" pubspec.lock >/dev/null || {
+            echo "google_mobile_ads is missing from pubspec.lock."
+            exit 1
+          }
+
+          grep -F "webview_flutter_wkwebview:" pubspec.lock >/dev/null || {
+            echo "webview_flutter_wkwebview is missing from pubspec.lock."
+            exit 1
+          }
+
+          grep -F "ca-app-pub-7416708332505708~6779281866" ios/Runner/Info.plist >/dev/null || {
+            echo "The iOS AdMob application identifier is missing."
+            exit 1
+          }
+
+          ! grep -F "REPLACE_WITH_IOS_ADMOB_APP_ID" ios/Runner/Info.plist >/dev/null || {
+            echo "The iOS AdMob application identifier still contains a placeholder."
+            exit 1
+          }
+      - name: Install CocoaPods dependencies
+        script: |
+          set -euo pipefail
+
+          cd ios
+          pod repo update
+          pod install --repo-update --verbose
+
+          test -d .symlinks/plugins/google_mobile_ads || {
+            echo "google_mobile_ads iOS plugin symlink is missing."
+            exit 1
+          }
+
+          test -d .symlinks/plugins/webview_flutter_wkwebview || {
+            echo "webview_flutter_wkwebview iOS plugin symlink is missing."
+            exit 1
+          }
+
+          find .symlinks/plugins/webview_flutter_wkwebview -name "*.podspec" | grep -q . || {
+            echo "webview_flutter_wkwebview podspec is missing from the local Flutter plugin symlink."
+            exit 1
+          }
       - name: Analyze Flutter project
         script: flutter analyze
       - name: Run Flutter tests
         script: flutter test
-      - name: Install CocoaPods dependencies
-        script: |
-          set -euo pipefail
-          if [ -f ios/Podfile ]; then
-            cd ios
-            pod install --repo-update
-          else
-            echo "No ios/Podfile found; skipping CocoaPods install."
-          fi
-      - name: Set up code signing
+      - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
       - name: Verify production identifiers
         script: |

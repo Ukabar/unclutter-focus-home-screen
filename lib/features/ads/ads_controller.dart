@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ad_ids.dart';
 import 'remote_ads_config.dart';
 import 'remote_ads_config_service.dart';
 
@@ -66,8 +67,17 @@ class AdsController extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     if (!_initialized) {
-      _initialized = true;
-      await gateway.initialize();
+      try {
+        await gateway.initialize();
+        _initialized = true;
+      } on Object catch (error) {
+        assert(() {
+          debugPrint('Google Mobile Ads initialization failed: $error');
+          return true;
+        }());
+        disposeLoadedAds();
+        return;
+      }
     }
 
     _preloadInterstitial();
@@ -253,16 +263,11 @@ class AdsController extends ChangeNotifier with WidgetsBindingObserver {
   String? nativeAdUnitId() => _adUnitId(_config.native.ids, AdFormat.native);
 
   String? _adUnitId(List<String> remoteIds, AdFormat format) {
-    if (debugMode) {
-      return switch (format) {
-        AdFormat.banner => 'ca-app-pub-3940256099942544/2934735716',
-        AdFormat.interstitial => 'ca-app-pub-3940256099942544/4411468910',
-        AdFormat.appOpen => 'ca-app-pub-3940256099942544/5662855259',
-        AdFormat.native => 'ca-app-pub-3940256099942544/3986624511',
-        AdFormat.rewarded => 'ca-app-pub-3940256099942544/1712485313',
-      };
-    }
-    return remoteIds.isEmpty ? null : remoteIds.first;
+    return AdIds.unitId(
+      format: format,
+      remoteIds: remoteIds,
+      debugMode: debugMode,
+    );
   }
 
   bool _cooldownElapsed(String key, Duration cooldown) {
@@ -304,8 +309,6 @@ class AdsController extends ChangeNotifier with WidgetsBindingObserver {
     super.dispose();
   }
 }
-
-enum AdFormat { banner, interstitial, appOpen, native, rewarded }
 
 abstract interface class AdsGateway {
   Future<void> initialize();
