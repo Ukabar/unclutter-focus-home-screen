@@ -29,6 +29,8 @@ workflows:
 
           test -f ios/Podfile
           grep -F "platform :ios, '14.0'" ios/Podfile >/dev/null
+          grep -F "use_frameworks!" ios/Podfile >/dev/null
+          grep -F "use_modular_headers!" ios/Podfile >/dev/null
           grep -F "flutter_install_all_ios_pods" ios/Podfile >/dev/null
           test -f .flutter-plugins-dependencies
           test -f pubspec.lock
@@ -67,7 +69,6 @@ workflows:
           set -euo pipefail
 
           cd ios
-          pod repo update
           pod install --repo-update --verbose
 
           test -d .symlinks/plugins/google_mobile_ads || {
