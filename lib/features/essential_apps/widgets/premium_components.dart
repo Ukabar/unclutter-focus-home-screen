@@ -221,8 +221,9 @@ class AppGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final int seed = name.codeUnits.fold<int>(0, (int a, int b) => a + b);
+    final Color accent = Theme.of(context).colorScheme.primary;
     final List<Color> colors = <Color>[
-      AppTheme.accent,
+      accent,
       AppTheme.sage,
       const Color(0xFFD99B7E),
       const Color(0xFFB9A7FF),

@@ -7,7 +7,7 @@ class AppTheme {
   static const Color line = Color(0xFF283545);
   static const Color ivory = Color(0xFFF4F0E8);
   static const Color muted = Color(0xFF9BA8B5);
-  static const Color accent = Color(0xFF7FB6FF);
+  static const Color accent = Color(0xFFD3A5FF);
   static const Color sage = Color(0xFF92A98E);
 
   static ThemeData light({Color accentColor = accent}) {

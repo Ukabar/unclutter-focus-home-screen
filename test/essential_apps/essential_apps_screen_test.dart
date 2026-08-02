@@ -151,10 +151,10 @@ void main() {
 
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Reset').last);
+    await tester.tap(find.text('Reset app').last);
     await tester.pumpAndSettle();
-    expect(find.text('Reset Stillscreen?'), findsOneWidget);
-    await tester.tap(find.text('Reset').last);
+    expect(find.text('Reset app?'), findsOneWidget);
+    await tester.tap(find.text('Reset app').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Pick Essential Apps'), findsOneWidget);
@@ -177,7 +177,7 @@ void main() {
 
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Reset'));
+    await tester.tap(find.text('Reset app'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
@@ -273,9 +273,9 @@ void main() {
 
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Reset'));
+    await tester.tap(find.text('Reset app'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Reset').last);
+    await tester.tap(find.text('Reset app').last);
     await tester.pumpAndSettle();
 
     final SharedPreferences preferences = await SharedPreferences.getInstance();

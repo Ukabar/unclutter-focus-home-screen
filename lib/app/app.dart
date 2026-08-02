@@ -50,8 +50,8 @@ class _StillscreenFocusLauncherAppState
   late AppCatalogRepository _appCatalogRepository;
   late LauncherRouteDispatcher _launcherRouteDispatcher;
   AdsController? _adsController;
-  AppThemeChoice _themeChoice = DefaultSettings.themeChoice;
-  AppAccentChoice _accentChoice = DefaultSettings.accentChoice;
+  AppThemeChoice _themeChoice = AppDefaults.defaultThemeChoice;
+  AppAccentChoice _accentChoice = AppDefaults.defaultAccentChoice;
   bool _isCheckingOnboarding = true;
   bool _showOnboarding = false;
   bool _showInitialPicker = false;
@@ -242,9 +242,8 @@ class _StillscreenFocusLauncherAppState
     setState(() => _accentChoice = choice);
   }
 
-  Future<void> _resetAppearanceSettingsToDefaults() async {
-    final AppAppearanceSettings settings = await _settingsStore
-        .resetToDefaults();
+  Future<void> _resetAppSettingsToDefaults() async {
+    final AppSettings settings = await _settingsStore.resetSettings();
     if (!mounted) {
       return;
     }
@@ -285,7 +284,7 @@ class _StillscreenFocusLauncherAppState
               accentChoice: _accentChoice,
               onThemeChoiceChanged: _setThemeChoice,
               onAccentChoiceChanged: _setAccentChoice,
-              onSettingsReset: _resetAppearanceSettingsToDefaults,
+              onSettingsReset: _resetAppSettingsToDefaults,
               adsController: _adsController,
             ),
     );

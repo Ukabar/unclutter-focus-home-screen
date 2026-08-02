@@ -26,8 +26,8 @@ class EssentialAppsScreen extends StatefulWidget {
     required this.appCatalogRepository,
     this.launcherRouteDispatcher,
     this.onSelectionReset,
-    this.themeChoice = DefaultSettings.themeChoice,
-    this.accentChoice = DefaultSettings.accentChoice,
+    this.themeChoice = AppDefaults.defaultThemeChoice,
+    this.accentChoice = AppDefaults.defaultAccentChoice,
     this.onThemeChoiceChanged,
     this.onAccentChoiceChanged,
     this.onSettingsReset,
@@ -57,6 +57,7 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
   int _guideStep = 0;
   String _widgetFamily = 'Medium';
   bool _isLoading = true;
+  bool _isResetting = false;
   String? _warning;
   String? _error;
   StreamSubscription<LauncherRouteDispatchResult>? _launcherRouteSubscription;
@@ -449,6 +450,7 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
         onPrivacyPressed: _showPrivacyInfo,
         onAboutPressed: _showAboutInfo,
         onReset: _resetSelectedApps,
+        isResetting: _isResetting,
       ),
     };
   }
@@ -512,7 +514,15 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
           title: 'Privacy',
           children: <Widget>[
             _SheetBodyText(
-              'Stillscreen keeps your selected apps on this device. On iPhone, Widget data is shared locally through App Groups. No tracking or installed-app scanning is used.',
+              'No tracking, no account, no contacts, no location, no notifications, and no installed-app scanning are required for Stillscreen settings.',
+            ),
+            SizedBox(height: 10),
+            _SheetBodyText(
+              'Your selected apps stay on this device. On iOS, the Widget reads a local App Group copy so the Home Screen can update without an account.',
+            ),
+            SizedBox(height: 10),
+            _SheetBodyText(
+              'This build includes an advertising SDK. Stillscreen settings are still stored locally and are not used for analytics or accounts.',
             ),
           ],
         );
@@ -530,12 +540,20 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
             const _SheetInfoRow(label: 'App name', value: 'Stillscreen'),
             const _SheetInfoRow(
               label: 'Display name',
-              value: DefaultSettings.aboutDisplayName,
+              value: AppDefaults.aboutDisplayName,
             ),
-            const _SheetInfoRow(label: 'Version', value: '1.0.0 (2)'),
+            const _SheetInfoRow(
+              label: 'Version',
+              value: AppDefaults.appVersion,
+            ),
+            const _SheetInfoRow(label: 'Build', value: AppDefaults.buildNumber),
             const _SheetInfoRow(
               label: 'Bundle ID',
-              value: 'com.zyverio.focuslauncher',
+              value: AppDefaults.bundleIdentifier,
+            ),
+            const _SheetInfoRow(
+              label: 'Privacy',
+              value: 'Local settings and local Widget App Group storage',
             ),
             _SheetOption(
               label: 'Licenses',
@@ -543,8 +561,9 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
                 Navigator.of(context).pop();
                 showLicensePage(
                   context: context,
-                  applicationName: 'Stillscreen',
-                  applicationVersion: '1.0.0 (2)',
+                  applicationName: AppDefaults.aboutDisplayName,
+                  applicationVersion:
+                      '${AppDefaults.appVersion} (${AppDefaults.buildNumber})',
                 );
               },
             ),
@@ -555,14 +574,18 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
   }
 
   Future<void> _resetSelectedApps() async {
+    if (_isResetting) {
+      return;
+    }
+
     final bool confirmed =
         await showDialog<bool>(
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
-              title: const Text('Reset Stillscreen?'),
+              title: const Text('Reset app?'),
               content: const Text(
-                'This removes your selected apps and restores the default Dark theme with Dusk accent. Onboarding will not be reset.',
+                'This restores Dark theme, Dusk accent, local-only privacy, and removes your selected apps. Onboarding will not be reset.',
               ),
               actions: <Widget>[
                 TextButton(
@@ -571,7 +594,7 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Reset'),
+                  child: const Text('Reset app'),
                 ),
               ],
             );
@@ -583,10 +606,36 @@ class _EssentialAppsScreenState extends State<EssentialAppsScreen> {
       return;
     }
 
-    await widget.onSettingsReset?.call();
-    await widget.launcherEntryRepository.saveEntries(<LauncherEntry>[]);
-    await _loadData();
-    widget.onSelectionReset?.call();
+    setState(() => _isResetting = true);
+
+    try {
+      await widget.onSettingsReset?.call();
+      await widget.launcherEntryRepository.saveEntries(<LauncherEntry>[]);
+      await _loadData();
+      widget.onSelectionReset?.call();
+    } on SharedLauncherSyncException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _entries = error.entries;
+        _warning = error.message;
+      });
+      widget.onSelectionReset?.call();
+    } on Object catch (error) {
+      if (!mounted) {
+        return;
+      }
+      assert(() {
+        debugPrint('Settings reset failed: $error');
+        return true;
+      }());
+      _showError('Settings could not be reset right now.');
+    } finally {
+      if (mounted) {
+        setState(() => _isResetting = false);
+      }
+    }
   }
 }
 
@@ -894,7 +943,7 @@ class _SetupGuideTab extends StatelessWidget {
           padding: const EdgeInsets.all(26),
           child: Column(
             children: <Widget>[
-              Icon(current.icon, size: 58, color: AppTheme.accent),
+              Icon(current.icon, size: 58, color: theme.colorScheme.primary),
               const SizedBox(height: 24),
               Text(
                 current.title,
@@ -956,6 +1005,7 @@ class _SettingsTab extends StatelessWidget {
     required this.onPrivacyPressed,
     required this.onAboutPressed,
     required this.onReset,
+    required this.isResetting,
     super.key,
   });
 
@@ -966,6 +1016,7 @@ class _SettingsTab extends StatelessWidget {
   final VoidCallback onPrivacyPressed;
   final VoidCallback onAboutPressed;
   final VoidCallback onReset;
+  final bool isResetting;
 
   @override
   Widget build(BuildContext context) {
@@ -992,26 +1043,26 @@ class _SettingsTab extends StatelessWidget {
         _SettingsRow(
           icon: CupertinoIcons.rectangle_grid_2x2,
           title: 'Widget Style',
-          value: DefaultSettings.widgetStyle.label,
-          enabled: DefaultSettings.widgetStyle.enabled,
+          value: AppDefaults.defaultWidgetStyle.label,
+          enabled: AppDefaults.defaultWidgetStyle.enabled,
         ),
         _SettingsRow(
           icon: CupertinoIcons.lock_shield,
           title: 'Privacy',
-          value: DefaultSettings.privacy.label,
+          value: AppDefaults.defaultPrivacy.label,
           onTap: onPrivacyPressed,
         ),
         _SettingsRow(
           icon: CupertinoIcons.info_circle,
           title: 'About',
-          value: DefaultSettings.aboutDisplayName,
+          value: AppDefaults.aboutDisplayName,
           onTap: onAboutPressed,
         ),
         const SizedBox(height: 18),
         PremiumActionButton(
-          label: 'Reset',
+          label: isResetting ? 'Resetting...' : 'Reset app',
           icon: CupertinoIcons.arrow_counterclockwise,
-          onPressed: onReset,
+          onPressed: isResetting ? null : onReset,
         ),
       ],
     );
@@ -1036,21 +1087,22 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final bool interactive = enabled && onTap != null;
     final Color contentColor = enabled
         ? theme.colorScheme.onSurface
         : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.58);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Semantics(
-        button: onTap != null,
+        button: interactive,
         enabled: enabled,
-        label: '$title, $value',
+        label: enabled ? '$title, $value' : '$title, $value, unavailable',
         child: Material(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(28),
           child: InkWell(
             borderRadius: BorderRadius.circular(28),
-            onTap: enabled ? onTap : null,
+            onTap: interactive ? onTap : null,
             child: PremiumCard(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
@@ -1087,14 +1139,16 @@ class _SettingsRow extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    CupertinoIcons.chevron_right,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: enabled ? 0.72 : 0.32,
+                  if (interactive) ...<Widget>[
+                    const SizedBox(width: 8),
+                    Icon(
+                      CupertinoIcons.chevron_right,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.72,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1119,7 +1173,7 @@ class _AdaptiveTabContainer extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: tablet ? 760 : constraints.maxWidth,
+              maxWidth: tablet ? 700 : constraints.maxWidth,
             ),
             child: child,
           ),
@@ -1148,19 +1202,21 @@ class _SettingsSheet extends StatelessWidget {
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                title,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              ...children,
-            ],
+                const SizedBox(height: 14),
+                ...children,
+              ],
+            ),
           ),
         ),
       ),

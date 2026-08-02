@@ -427,17 +427,18 @@ class _SelectedCountBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color accent = Theme.of(context).colorScheme.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
       decoration: BoxDecoration(
-        color: AppTheme.accent.withValues(alpha: 0.14),
+        color: accent.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.22)),
+        border: Border.all(color: accent.withValues(alpha: 0.22)),
       ),
       child: Text(
         '$count / $limit selected',
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: AppTheme.accent,
+          color: accent,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -452,6 +453,7 @@ class _HeaderCustomButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color accent = Theme.of(context).colorScheme.primary;
     return Semantics(
       button: true,
       label: 'Add custom app',
@@ -465,7 +467,7 @@ class _HeaderCustomButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(CupertinoIcons.pencil, size: 17, color: AppTheme.accent),
+            Icon(CupertinoIcons.pencil, size: 17, color: accent),
             const SizedBox(width: 7),
             Text(
               'Custom',
@@ -498,6 +500,7 @@ class _AppSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color accent = Theme.of(context).colorScheme.primary;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
@@ -507,7 +510,7 @@ class _AppSearchField extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: isFocused
-              ? AppTheme.accent.withValues(alpha: 0.52)
+              ? accent.withValues(alpha: 0.52)
               : _CatalogPickerSheetState._line,
         ),
       ),
@@ -518,7 +521,7 @@ class _AppSearchField extends StatelessWidget {
         onChanged: onChanged,
         keyboardAppearance: Brightness.dark,
         textInputAction: TextInputAction.search,
-        cursorColor: AppTheme.accent,
+        cursorColor: accent,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
           color: AppTheme.ivory,
           fontWeight: FontWeight.w600,
@@ -693,6 +696,7 @@ class _AppSelectionRowState extends State<_AppSelectionRow> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final Color accent = theme.colorScheme.primary;
     final Color textColor = widget.isDisabled
         ? AppTheme.ivory.withValues(alpha: 0.38)
         : AppTheme.ivory;
@@ -717,7 +721,7 @@ class _AppSelectionRowState extends State<_AppSelectionRow> {
             constraints: const BoxConstraints(minHeight: 80),
             decoration: BoxDecoration(
               color: widget.isSelected
-                  ? AppTheme.accent.withValues(alpha: 0.07)
+                  ? accent.withValues(alpha: 0.07)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(24),
             ),
@@ -790,6 +794,7 @@ class _SelectedEntryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color accent = Theme.of(context).colorScheme.primary;
     return Semantics(
       button: true,
       label: 'Remove ${entry.name}',
@@ -800,9 +805,9 @@ class _SelectedEntryChip extends StatelessWidget {
           constraints: const BoxConstraints(minWidth: 120, maxWidth: 178),
           padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
           decoration: BoxDecoration(
-            color: AppTheme.accent.withValues(alpha: 0.08),
+            color: accent.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.accent.withValues(alpha: 0.18)),
+            border: Border.all(color: accent.withValues(alpha: 0.18)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -842,11 +847,12 @@ class _SelectionGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color accent = Theme.of(context).colorScheme.primary;
     final Color color = isSelected
         ? AppTheme.sage
         : isDisabled
         ? AppTheme.ivory.withValues(alpha: 0.26)
-        : AppTheme.accent;
+        : accent;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 160),
@@ -876,6 +882,7 @@ class _EmptySearchState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final Color accent = theme.colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 150),
@@ -921,7 +928,7 @@ class _EmptySearchState extends StatelessWidget {
                     horizontal: 18,
                     vertical: 12,
                   ),
-                  color: AppTheme.accent,
+                  color: accent,
                   borderRadius: BorderRadius.circular(18),
                   onPressed: onManualEntry,
                   child: Text(
@@ -958,6 +965,7 @@ class _BottomSelectionAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final double bottomPadding = MediaQuery.paddingOf(context).bottom;
     final bool isDisabled = onPressed == null;
+    final Color accent = Theme.of(context).colorScheme.primary;
 
     return ClipRect(
       child: BackdropFilter(
@@ -985,7 +993,7 @@ class _BottomSelectionAction extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: isDisabled
                       ? _CatalogPickerSheetState._card
-                      : AppTheme.accent,
+                      : accent,
                   foregroundColor: isDisabled
                       ? AppTheme.ivory.withValues(alpha: 0.38)
                       : Colors.white,
