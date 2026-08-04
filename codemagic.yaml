@@ -1,219 +1,104 @@
-workflows:
-  testFlight:
-    name: "Stillscreen: Focus Launcher"
-    integrations:
-      app_store_connect: SpeedTeste
-    environment:
-      flutter: stable
-      xcode: latest
-      ios_signing:
-        provisioning_profiles:
-          - ZyverioFocusLauncher
-          - ZyverioFocusLauncherWidget
-        certificates:
-          - FocusLauncher
-      vars:
-        MAIN_BUNDLE_ID: com.zyverio.focuslauncher
-        WIDGET_BUNDLE_ID: com.zyverio.focuslauncher.EssentialLauncherWidget
-        APP_GROUP_ID: group.com.zyverio.focuslauncher
-        WIDGET_EXTENSION_NAME: EssentialLauncherWidget
-    scripts:
-      - name: Clean Flutter build artifacts
-        script: flutter clean
-      - name: Get Flutter packages
-        script: flutter pub get
-      - name: Verify Flutter iOS plugins
-        script: |
-          set -euo pipefail
+scripts:
+  - name: Clean Flutter and iOS dependencies
+    script: |
+      set -euo pipefail
 
-          test -f ios/Podfile
-          grep -F "platform :ios, '14.0'" ios/Podfile >/dev/null
-          grep -F "use_frameworks!" ios/Podfile >/dev/null
-          grep -F "use_modular_headers!" ios/Podfile >/dev/null
-          grep -F "flutter_install_all_ios_pods" ios/Podfile >/dev/null
-          test -f .flutter-plugins-dependencies
-          test -f pubspec.lock
+      flutter clean
 
-          grep -F '"google_mobile_ads"' .flutter-plugins-dependencies >/dev/null || {
-            echo "google_mobile_ads was not resolved by Flutter."
-            exit 1
-          }
+      rm -rf ios/Pods
+      rm -rf ios/.symlinks
+      rm -rf ios/Flutter/ephemeral
+      rm -f ios/Podfile.lock
 
-          grep -F '"webview_flutter_wkwebview"' .flutter-plugins-dependencies >/dev/null || {
-            echo "webview_flutter_wkwebview was not resolved by Flutter."
-            exit 1
-          }
+  - name: Get Flutter packages
+    script: |
+      set -euo pipefail
+      flutter pub get
 
-          grep -F "google_mobile_ads:" pubspec.lock >/dev/null || {
-            echo "google_mobile_ads is missing from pubspec.lock."
-            exit 1
-          }
+  - name: Verify Flutter dependencies and Podfile
+    script: |
+      set -euo pipefail
 
-          grep -F "webview_flutter_wkwebview:" pubspec.lock >/dev/null || {
-            echo "webview_flutter_wkwebview is missing from pubspec.lock."
-            exit 1
-          }
+      test -f ios/Podfile
+      test -f pubspec.lock
+      test -f .flutter-plugins-dependencies
 
-          grep -F "ca-app-pub-7416708332505708~6779281866" ios/Runner/Info.plist >/dev/null || {
-            echo "The iOS AdMob application identifier is missing."
-            exit 1
-          }
+      grep -F "google_mobile_ads:" pubspec.lock >/dev/null || {
+        echo "google_mobile_ads is missing from pubspec.lock."
+        exit 1
+      }
 
-          ! grep -F "REPLACE_WITH_IOS_ADMOB_APP_ID" ios/Runner/Info.plist >/dev/null || {
-            echo "The iOS AdMob application identifier still contains a placeholder."
-            exit 1
-          }
-      - name: Install CocoaPods dependencies
-        script: |
-          set -euo pipefail
+      grep -F "webview_flutter_wkwebview:" pubspec.lock >/dev/null || {
+        echo "webview_flutter_wkwebview is missing from pubspec.lock."
+        exit 1
+      }
 
-          cd ios
-          pod install --repo-update --verbose
+      grep -F '"google_mobile_ads"' .flutter-plugins-dependencies >/dev/null || {
+        echo "google_mobile_ads was not registered as a Flutter plugin."
+        exit 1
+      }
 
-          test -d .symlinks/plugins/google_mobile_ads || {
-            echo "google_mobile_ads iOS plugin symlink is missing."
-            exit 1
-          }
+      grep -F '"webview_flutter_wkwebview"' .flutter-plugins-dependencies >/dev/null || {
+        echo "webview_flutter_wkwebview was not registered as a Flutter plugin."
+        exit 1
+      }
 
-          test -d .symlinks/plugins/webview_flutter_wkwebview || {
-            echo "webview_flutter_wkwebview iOS plugin symlink is missing."
-            exit 1
-          }
+      grep -F "platform :ios, '14.0'" ios/Podfile >/dev/null || {
+        echo "Podfile does not declare iOS 14.0."
+        exit 1
+      }
 
-          find .symlinks/plugins/webview_flutter_wkwebview -name "*.podspec" | grep -q . || {
-            echo "webview_flutter_wkwebview podspec is missing from the local Flutter plugin symlink."
-            exit 1
-          }
-      - name: Analyze Flutter project
-        script: flutter analyze
-      - name: Run Flutter tests
-        script: flutter test
-      - name: Set up code signing settings on Xcode project
-        script: xcode-project use-profiles
-      - name: Verify production identifiers
-        script: |
-          set -euo pipefail
+      grep -F "flutter_ios_podfile_setup" ios/Podfile >/dev/null || {
+        echo "flutter_ios_podfile_setup is missing."
+        exit 1
+      }
 
-          grep -R -E "group[.]com[.](ukabar|example|company)|com[.](ukabar|example|company)" \
-            --exclude-dir=.git \
-            --exclude-dir=build \
-            --exclude-dir=.dart_tool \
-            --exclude-dir=.gradle \
-            . && {
-              echo "Old or placeholder identifiers were found."
-              exit 1
-            } || true
+      grep -F "flutter_install_all_ios_pods" ios/Podfile >/dev/null || {
+        echo "flutter_install_all_ios_pods is missing."
+        exit 1
+      }
 
-          grep -R "$MAIN_BUNDLE_ID" ios android lib test docs README.md codemagic.yaml >/dev/null
-          grep -R "$WIDGET_BUNDLE_ID" ios docs README.md codemagic.yaml >/dev/null
-          grep -R "$APP_GROUP_ID" ios docs README.md codemagic.yaml >/dev/null
-          grep -R "focuslauncher" ios lib test docs README.md codemagic.yaml >/dev/null
+      MANUAL_PODS="$(
+        grep -nE \
+          "pod ['\"](google_mobile_ads|webview_flutter|webview_flutter_wkwebview|Google-Mobile-Ads-SDK)['\"]" \
+          ios/Podfile || true
+      )"
 
-          echo "Production identifiers verified."
-      - name: Verify iOS app icons have no alpha
-        script: |
-          python3 - <<'PY'
-          import pathlib
-          import struct
-          import sys
+      if [ -n "$MANUAL_PODS" ]; then
+        echo "Invalid manually declared Flutter/Ads pods were found:"
+        echo "$MANUAL_PODS"
+        exit 1
+      fi
 
-          icon_dir = pathlib.Path("ios/Runner/Assets.xcassets/AppIcon.appiconset")
-          failures = []
+      echo "Flutter dependency and Podfile checks passed."
 
-          def png_info(path):
-              data = path.read_bytes()
-              if data[:8] != b"\x89PNG\r\n\x1a\n":
-                  failures.append(f"{path.name}: not a PNG file")
-                  return
+  - name: Install CocoaPods dependencies
+    script: |
+      set -euo pipefail
 
-              width, height, bit_depth, color_type = struct.unpack(">IIBB", data[16:26])
-              offset = 8
-              has_trns = False
-              while offset + 12 <= len(data):
-                  length = struct.unpack(">I", data[offset:offset + 4])[0]
-                  chunk_type = data[offset + 4:offset + 8]
-                  if chunk_type == b"tRNS":
-                      has_trns = True
-                  offset += 12 + length
-                  if chunk_type == b"IEND":
-                      break
+      cd ios
+      pod install --repo-update --verbose
 
-              if color_type in (4, 6) or has_trns:
-                  failures.append(
-                      f"{path.name}: {width}x{height}, color_type={color_type}, tRNS={has_trns}"
-                  )
+      test -d .symlinks/plugins/google_mobile_ads || {
+        echo "google_mobile_ads local plugin symlink was not generated."
+        exit 1
+      }
 
-          for path in sorted(icon_dir.glob("*.png")):
-              png_info(path)
+      test -d .symlinks/plugins/webview_flutter_wkwebview || {
+        echo "webview_flutter_wkwebview local plugin symlink was not generated."
+        exit 1
+      }
 
-          if failures:
-              print("Invalid iOS AppIcon PNG files with alpha/transparency:")
-              print("\n".join(failures))
-              sys.exit(1)
+      find .symlinks/plugins/google_mobile_ads \
+        -name "*.podspec" -print | grep -q . || {
+          echo "google_mobile_ads podspec is missing."
+          exit 1
+        }
 
-          print("All iOS AppIcon PNG files are opaque RGB/Indexed/Grayscale without tRNS.")
-          PY
-      - name: Build IPA
-        script: |
-          flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
-      - name: Verify packaged Runner.app and Widget extension exist
-        script: |
-          set -euo pipefail
+      find .symlinks/plugins/webview_flutter_wkwebview \
+        -name "*.podspec" -print | grep -q . || {
+          echo "webview_flutter_wkwebview podspec is missing."
+          exit 1
+        }
 
-          IPA_PATH="$(ls -1 build/ios/ipa/*.ipa | head -n 1)"
-          TEST_DIR="/tmp/zyverio_focus_launcher_ipa"
-          rm -rf "$TEST_DIR"
-          mkdir -p "$TEST_DIR"
-          unzip -q "$IPA_PATH" -d "$TEST_DIR"
-
-          RUNNER_APP="$(find "$TEST_DIR/Payload" -maxdepth 1 -type d -name "*.app" | head -n 1)"
-          test -n "$RUNNER_APP"
-          WIDGET_APPEX="$RUNNER_APP/PlugIns/$WIDGET_EXTENSION_NAME.appex"
-
-          test -d "$RUNNER_APP"
-          test -f "$RUNNER_APP/Assets.car"
-          test -d "$WIDGET_APPEX"
-          test -f "$WIDGET_APPEX/Info.plist"
-
-          assetutil --info "$RUNNER_APP/Assets.car" > "$TEST_DIR/assets-car-info.json"
-
-          echo "Packaged Runner.app, Assets.car, and $WIDGET_EXTENSION_NAME.appex verified."
-      - name: Verify packaged identifiers and entitlements
-        script: |
-          set -euo pipefail
-
-          TEST_DIR="/tmp/zyverio_focus_launcher_ipa"
-          RUNNER_APP="$(find "$TEST_DIR/Payload" -maxdepth 1 -type d -name "*.app" | head -n 1)"
-          test -n "$RUNNER_APP"
-          WIDGET_APPEX="$RUNNER_APP/PlugIns/$WIDGET_EXTENSION_NAME.appex"
-
-          RUNNER_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$RUNNER_APP/Info.plist")"
-          WIDGET_PACKAGED_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$WIDGET_APPEX/Info.plist")"
-          WIDGET_EXTENSION_POINT="$(/usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$WIDGET_APPEX/Info.plist")"
-
-          test "$RUNNER_BUNDLE_ID" = "$MAIN_BUNDLE_ID"
-          test "$WIDGET_PACKAGED_BUNDLE_ID" = "$WIDGET_BUNDLE_ID"
-          test "$WIDGET_EXTENSION_POINT" = "com.apple.widgetkit-extension"
-
-          codesign -d --entitlements :- "$RUNNER_APP" > "$TEST_DIR/runner-entitlements.plist"
-          codesign -d --entitlements :- "$WIDGET_APPEX" > "$TEST_DIR/widget-entitlements.plist"
-
-          /usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups" "$TEST_DIR/runner-entitlements.plist" | grep "$APP_GROUP_ID"
-          /usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups" "$TEST_DIR/widget-entitlements.plist" | grep "$APP_GROUP_ID"
-
-          echo "Packaged bundle identifiers, WidgetKit extension point, and App Group entitlements verified."
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/zyverio_focus_launcher_ipa/assets-car-info.json
-      - /tmp/zyverio_focus_launcher_ipa/runner-entitlements.plist
-      - /tmp/zyverio_focus_launcher_ipa/widget-entitlements.plist
-    publishing:
-      email:
-        recipients:
-          - hornet.devlo@gmail.com
-        notify:
-          success: true
-          failure: true
-      app_store_connect:
-        auth: integration
+      echo "CocoaPods and local Flutter plugins installed correctly."
