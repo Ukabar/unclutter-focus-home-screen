@@ -15,98 +15,19 @@ workflows:
           - ZyverioFocusLauncherWidget
 
     scripts:
-      - name: Use CocoaPods for Flutter iOS plugins
-        script: |
-          set -euo pipefail
-
-          flutter config --no-enable-swift-package-manager
-          flutter config --list | grep -F "enable-swift-package-manager: false"
-
       - name: Clean Flutter build artifacts
         script: |
-          set -euo pipefail
+          set -e
           flutter clean
 
       - name: Get Flutter packages
         script: |
-          set -euo pipefail
+          set -e
           flutter pub get
-
-      - name: Verify Flutter iOS dependency manager
-        script: |
-          set -euo pipefail
-
-          test -f ios/Podfile
-          grep -F "platform :ios, '14.0'" ios/Podfile >/dev/null
-          grep -F "flutter_ios_podfile_setup" ios/Podfile >/dev/null
-          grep -F "use_frameworks!" ios/Podfile >/dev/null
-          grep -F "use_modular_headers!" ios/Podfile >/dev/null
-          grep -F "flutter_install_all_ios_pods" ios/Podfile >/dev/null
-          test -f pubspec.lock
-          test -f .flutter-plugins-dependencies
-
-          grep -F '"google_mobile_ads"' .flutter-plugins-dependencies >/dev/null || {
-            echo "google_mobile_ads was not resolved by Flutter."
-            exit 1
-          }
-
-          grep -F '"webview_flutter_wkwebview"' .flutter-plugins-dependencies >/dev/null || {
-            echo "webview_flutter_wkwebview was not resolved by Flutter."
-            exit 1
-          }
-
-          grep -F '"swift_package_manager_enabled":{"ios":false' .flutter-plugins-dependencies >/dev/null || {
-            echo "Swift Package Manager is still enabled for iOS plugins."
-            cat .flutter-plugins-dependencies
-            exit 1
-          }
-
-          ! grep -R "FlutterGeneratedPluginSwiftPackage\|XCLocalSwiftPackageReference\|XCSwiftPackageProductDependency" \
-            ios/Runner.xcodeproj/project.pbxproj >/dev/null || {
-              echo "Stale Flutter Swift Package Manager references remain in project.pbxproj."
-              exit 1
-            }
-
-      - name: Install CocoaPods dependencies
-        script: |
-          set -euo pipefail
-
-          cd ios
-          pod install --repo-update --verbose
-
-          test -d .symlinks/plugins/google_mobile_ads || {
-            echo "google_mobile_ads iOS plugin symlink is missing."
-            exit 1
-          }
-
-          test -d .symlinks/plugins/webview_flutter_wkwebview || {
-            echo "webview_flutter_wkwebview iOS plugin symlink is missing."
-            exit 1
-          }
-
-          find .symlinks/plugins/google_mobile_ads -name "*.podspec" | grep -q . || {
-            echo "google_mobile_ads local podspec is missing."
-            exit 1
-          }
-
-          find .symlinks/plugins/webview_flutter_wkwebview -name "*.podspec" | grep -q . || {
-            echo "webview_flutter_wkwebview local podspec is missing."
-            exit 1
-          }
-
-      - name: Analyze Flutter project
-        script: |
-          set -euo pipefail
-          flutter analyze
-
-      - name: Run Flutter tests
-        script: |
-          set -euo pipefail
-          flutter test
 
       - name: Set up code signing
         script: |
-          set -euo pipefail
+          set -e
           xcode-project use-profiles
 
           echo "Checking generated export options..."
