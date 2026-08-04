@@ -13,14 +13,147 @@ workflows:
         bundle_identifier: com.zyverio.focuslauncher
 
     scripts:
+      - name: Use Swift Package Manager for Flutter iOS plugins
+        script: |
+          set -euo pipefail
+
+          flutter config --enable-swift-package-manager
+          flutter config --list | grep -F "enable-swift-package-manager: true"
+
+      - name: Clean Flutter build artifacts
+        script: |
+          set -euo pipefail
+          flutter clean
+
       - name: Get Flutter packages
-        script: flutter pub get
+        script: |
+          set -euo pipefail
+          flutter pub get
+
+      - name: Verify Flutter iOS dependencies
+        script: |
+          set -euo pipefail
+
+          test -f pubspec.lock
+          test -f .flutter-plugins-dependencies
+
+          grep -A 8 "^  google_mobile_ads:" pubspec.lock | grep -F 'version: "9.0.0"' >/dev/null || {
+            echo "google_mobile_ads must resolve to 9.0.0 or newer for Swift Package Manager support."
+            exit 1
+          }
+
+          grep -F '"google_mobile_ads"' .flutter-plugins-dependencies >/dev/null || {
+            echo "google_mobile_ads was not resolved by Flutter."
+            exit 1
+          }
+
+          grep -F '"webview_flutter_wkwebview"' .flutter-plugins-dependencies >/dev/null || {
+            echo "webview_flutter_wkwebview was not resolved by Flutter."
+            exit 1
+          }
+
+          grep -F "FlutterGeneratedPluginSwiftPackage" ios/Runner.xcodeproj/project.pbxproj >/dev/null || {
+            echo "Flutter Swift Package Manager integration is missing from project.pbxproj."
+            exit 1
+          }
+
+      - name: Analyze Flutter project
+        script: |
+          set -euo pipefail
+          flutter analyze
+
+      - name: Run Flutter tests
+        script: |
+          set -euo pipefail
+          flutter test
 
       - name: Set up iOS code signing
-        script: xcode-project use-profiles
+        script: |
+          set -euo pipefail
+          xcode-project use-profiles
+
+      - name: Verify iOS app icons have no alpha
+        script: |
+          python3 - <<'PY'
+          import pathlib
+          import struct
+          import sys
+
+          icon_dir = pathlib.Path(
+              "ios/Runner/Assets.xcassets/AppIcon.appiconset"
+          )
+
+          if not icon_dir.exists():
+              print(f"AppIcon directory not found: {icon_dir}")
+              sys.exit(1)
+
+          failures = []
+          png_files = sorted(icon_dir.glob("*.png"))
+
+          if not png_files:
+              print("No PNG files found in the iOS AppIcon set.")
+              sys.exit(1)
+
+          def png_info(path):
+              data = path.read_bytes()
+
+              if data[:8] != b"\x89PNG\r\n\x1a\n":
+                  failures.append(f"{path.name}: not a PNG file")
+                  return
+
+              width, height, bit_depth, color_type = struct.unpack(
+                  ">IIBB",
+                  data[16:26],
+              )
+
+              offset = 8
+              has_trns = False
+
+              while offset + 12 <= len(data):
+                  length = struct.unpack(
+                      ">I",
+                      data[offset:offset + 4],
+                  )[0]
+
+                  chunk_type = data[offset + 4:offset + 8]
+
+                  if chunk_type == b"tRNS":
+                      has_trns = True
+
+                  offset += 12 + length
+
+                  if chunk_type == b"IEND":
+                      break
+
+              if color_type in (4, 6) or has_trns:
+                  failures.append(
+                      f"{path.name}: "
+                      f"{width}x{height}, "
+                      f"color_type={color_type}, "
+                      f"tRNS={has_trns}"
+                  )
+
+          for path in png_files:
+              png_info(path)
+
+          if failures:
+              print(
+                  "Invalid iOS AppIcon PNG files "
+                  "with alpha/transparency:"
+              )
+              print("\n".join(failures))
+              sys.exit(1)
+
+          print(
+              "All iOS AppIcon PNG files are opaque "
+              "and contain no transparency."
+          )
+          PY
 
       - name: Build IPA
         script: |
+          set -euo pipefail
+
           flutter build ipa \
             --release \
             --build-number="$BUILD_NUMBER" \
