@@ -1,104 +1,231 @@
-scripts:
-  - name: Clean Flutter and iOS dependencies
-    script: |
-      set -euo pipefail
+workflows:
+  testFlight:
+    name: "Stillscreen: Focus Launcher"
 
-      flutter clean
+    integrations:
+      app_store_connect: SpeedTeste
 
-      rm -rf ios/Pods
-      rm -rf ios/.symlinks
-      rm -rf ios/Flutter/ephemeral
-      rm -f ios/Podfile.lock
+    environment:
+      flutter: stable
 
-  - name: Get Flutter packages
-    script: |
-      set -euo pipefail
-      flutter pub get
+      ios_signing:
+        provisioning_profiles:
+          - ZyverioFocusLauncher
+          - ZyverioFocusLauncherWidget
 
-  - name: Verify Flutter dependencies and Podfile
-    script: |
-      set -euo pipefail
+    scripts:
+      - name: Clean Flutter build artifacts
+        script: |
+          set -e
+          flutter clean
 
-      test -f ios/Podfile
-      test -f pubspec.lock
-      test -f .flutter-plugins-dependencies
+      - name: Get Flutter packages
+        script: |
+          set -e
+          flutter pub get
 
-      grep -F "google_mobile_ads:" pubspec.lock >/dev/null || {
-        echo "google_mobile_ads is missing from pubspec.lock."
-        exit 1
-      }
+      - name: Set up code signing
+        script: |
+          set -e
+          xcode-project use-profiles
 
-      grep -F "webview_flutter_wkwebview:" pubspec.lock >/dev/null || {
-        echo "webview_flutter_wkwebview is missing from pubspec.lock."
-        exit 1
-      }
+          echo "Checking generated export options..."
+          test -f /Users/builder/export_options.plist
 
-      grep -F '"google_mobile_ads"' .flutter-plugins-dependencies >/dev/null || {
-        echo "google_mobile_ads was not registered as a Flutter plugin."
-        exit 1
-      }
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning || true
 
-      grep -F '"webview_flutter_wkwebview"' .flutter-plugins-dependencies >/dev/null || {
-        echo "webview_flutter_wkwebview was not registered as a Flutter plugin."
-        exit 1
-      }
+          echo "Installed provisioning profiles:"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" || true
 
-      grep -F "platform :ios, '14.0'" ios/Podfile >/dev/null || {
-        echo "Podfile does not declare iOS 14.0."
-        exit 1
-      }
+      - name: Verify iOS app icons have no alpha
+        script: |
+          python3 - <<'PY'
+          import pathlib
+          import struct
+          import sys
 
-      grep -F "flutter_ios_podfile_setup" ios/Podfile >/dev/null || {
-        echo "flutter_ios_podfile_setup is missing."
-        exit 1
-      }
+          icon_dir = pathlib.Path(
+              "ios/Runner/Assets.xcassets/AppIcon.appiconset"
+          )
 
-      grep -F "flutter_install_all_ios_pods" ios/Podfile >/dev/null || {
-        echo "flutter_install_all_ios_pods is missing."
-        exit 1
-      }
+          if not icon_dir.exists():
+              print(f"AppIcon directory not found: {icon_dir}")
+              sys.exit(1)
 
-      MANUAL_PODS="$(
-        grep -nE \
-          "pod ['\"](google_mobile_ads|webview_flutter|webview_flutter_wkwebview|Google-Mobile-Ads-SDK)['\"]" \
-          ios/Podfile || true
-      )"
+          failures = []
+          png_files = sorted(icon_dir.glob("*.png"))
 
-      if [ -n "$MANUAL_PODS" ]; then
-        echo "Invalid manually declared Flutter/Ads pods were found:"
-        echo "$MANUAL_PODS"
-        exit 1
-      fi
+          if not png_files:
+              print("No PNG files found in the iOS AppIcon set.")
+              sys.exit(1)
 
-      echo "Flutter dependency and Podfile checks passed."
+          def png_info(path):
+              data = path.read_bytes()
 
-  - name: Install CocoaPods dependencies
-    script: |
-      set -euo pipefail
+              if data[:8] != b"\x89PNG\r\n\x1a\n":
+                  failures.append(f"{path.name}: not a PNG file")
+                  return
 
-      cd ios
-      pod install --repo-update --verbose
+              width, height, bit_depth, color_type = struct.unpack(
+                  ">IIBB",
+                  data[16:26],
+              )
 
-      test -d .symlinks/plugins/google_mobile_ads || {
-        echo "google_mobile_ads local plugin symlink was not generated."
-        exit 1
-      }
+              offset = 8
+              has_trns = False
 
-      test -d .symlinks/plugins/webview_flutter_wkwebview || {
-        echo "webview_flutter_wkwebview local plugin symlink was not generated."
-        exit 1
-      }
+              while offset + 12 <= len(data):
+                  length = struct.unpack(
+                      ">I",
+                      data[offset:offset + 4],
+                  )[0]
 
-      find .symlinks/plugins/google_mobile_ads \
-        -name "*.podspec" -print | grep -q . || {
-          echo "google_mobile_ads podspec is missing."
-          exit 1
-        }
+                  chunk_type = data[offset + 4:offset + 8]
 
-      find .symlinks/plugins/webview_flutter_wkwebview \
-        -name "*.podspec" -print | grep -q . || {
-          echo "webview_flutter_wkwebview podspec is missing."
-          exit 1
-        }
+                  if chunk_type == b"tRNS":
+                      has_trns = True
 
-      echo "CocoaPods and local Flutter plugins installed correctly."
+                  offset += 12 + length
+
+                  if chunk_type == b"IEND":
+                      break
+
+              if color_type in (4, 6) or has_trns:
+                  failures.append(
+                      f"{path.name}: "
+                      f"{width}x{height}, "
+                      f"color_type={color_type}, "
+                      f"tRNS={has_trns}"
+                  )
+
+          for path in png_files:
+              png_info(path)
+
+          if failures:
+              print(
+                  "Invalid iOS AppIcon PNG files "
+                  "with alpha/transparency:"
+              )
+              print("\n".join(failures))
+              sys.exit(1)
+
+          print(
+              "All iOS AppIcon PNG files are opaque "
+              "and contain no transparency."
+          )
+          PY
+
+      - name: Build signed IPA
+        script: |
+          set -euo pipefail
+
+          echo "Flutter version:"
+          flutter --version
+
+          echo "Xcode version:"
+          xcodebuild -version
+
+          echo "Starting signed IPA build..."
+
+          flutter build ipa \
+            --release \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+
+          echo "Build command completed."
+
+          echo "Contents of build/ios:"
+          find build/ios -maxdepth 5 -print || true
+
+          IPA_PATH="$(
+            find "$CM_BUILD_DIR/build/ios/ipa" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.ipa" \
+              -print \
+              -quit 2>/dev/null || true
+          )"
+
+          if [ -z "$IPA_PATH" ]; then
+            echo "ERROR: flutter build ipa finished but no IPA was found."
+            echo "Searching the entire project for IPA files:"
+            find "$CM_BUILD_DIR" -type f -name "*.ipa" -print || true
+
+            echo "Searching for Xcode archives:"
+            find "$CM_BUILD_DIR" -type d -name "*.xcarchive" -print || true
+
+            exit 1
+          fi
+
+          echo "IPA successfully generated:"
+          echo "$IPA_PATH"
+          ls -lh "$IPA_PATH"
+
+      - name: Verify packaged app
+        script: |
+          set -euo pipefail
+
+          IPA_PATH="$(
+            find "$CM_BUILD_DIR/build/ios/ipa" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.ipa" \
+              -print \
+              -quit 2>/dev/null || true
+          )"
+
+          if [ -z "$IPA_PATH" ]; then
+            echo "ERROR: No IPA file found for verification."
+            exit 1
+          fi
+
+          rm -rf /tmp/ping_test_ipa
+          mkdir -p /tmp/ping_test_ipa
+
+          unzip -q "$IPA_PATH" -d /tmp/ping_test_ipa
+
+          APP_PATH="$(
+            find /tmp/ping_test_ipa/Payload \
+              -maxdepth 1 \
+              -type d \
+              -name "*.app" \
+              -print \
+              -quit 2>/dev/null || true
+          )"
+
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No packaged .app was found inside the IPA."
+            find /tmp/ping_test_ipa -maxdepth 4 -print || true
+            exit 1
+          fi
+
+          echo "Packaged application found:"
+          echo "$APP_PATH"
+
+          if [ ! -f "$APP_PATH/Assets.car" ]; then
+            echo "ERROR: Assets.car was not found."
+            find "$APP_PATH" -maxdepth 2 -print || true
+            exit 1
+          fi
+
+          assetutil --info "$APP_PATH/Assets.car" \
+            > /tmp/ping_test_ipa/assets-car-info.json
+
+          echo "Packaged application and Assets.car verified."
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - /tmp/ping_test_ipa/assets-car-info.json
+
+    publishing:
+      email:
+        recipients:
+          - hornet.devlo@gmail.com
+        notify:
+          success: true
+          failure: true
+
+      app_store_connect:
+        auth: integration
