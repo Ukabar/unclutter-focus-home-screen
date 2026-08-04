@@ -1,1 +1,7 @@
 include: package:flutter_lints/flutter.yaml
+analyzer:
+  exclude:
+    - build/**
+    - ios/Pods/**
+    - ios/.symlinks/**
+    - ios/Flutter/ephemeral/**
